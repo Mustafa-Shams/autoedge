@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -29,5 +31,12 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     background: #4D7FFF;
+  }
+}
+
+@layer components {
+  /* Reusable input / select / textarea style */
+  .input {
+    @apply w-full bg-bg-elevated border border-bg-border text-text-primary rounded-lg px-3 py-2 text-sm placeholder-text-muted focus:outline-none focus:border-accent-blue transition-colors;
   }
 }
