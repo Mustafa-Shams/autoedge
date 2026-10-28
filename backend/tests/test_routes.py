@@ -1,7 +1,21 @@
 """Smoke tests for all AutoEdge API routes."""
+import os
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app
+
+# Use in-memory SQLite for tests to avoid needing a real DB
+os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
+os.environ["ALGORITHM"] = "HS256"
+os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"
+os.environ["CORS_ORIGINS"] = "http://localhost:5173"
+
+from app.main import app  # noqa: E402 — import after env vars set
+from app.db.session import engine
+from app.db.base import Base
+
+# Create all tables in SQLite for testing
+Base.metadata.create_all(bind=engine)
 
 client = TestClient(app)
 

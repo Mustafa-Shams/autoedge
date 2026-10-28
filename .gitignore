@@ -28,5 +28,9 @@ Thumbs.db
 # Alembic
 alembic/versions/*.pyc
 
+# SQLite test databases
+backend/*.db
+backend/alembic_gen.db
+
 # Temp
 CUsersmustaAppDataLocalTempvite-autoedge/
