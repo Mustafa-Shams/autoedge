@@ -27,6 +27,9 @@ class CommissionResponse(CommissionBase):
     commission_id: int
     created_at: datetime
     paid_at: Optional[datetime] = None
+    # Enriched display fields (populated by CRUD layer)
+    staff_name: Optional[str] = None    # "Sarah Sales"
+    vehicle_info: Optional[str] = None  # "2023 Toyota Camry"
 
 
 class CommissionSummary(BaseModel):

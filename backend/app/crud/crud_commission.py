@@ -5,11 +5,29 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models.commission import Commission
 from app.models.user import User
+from app.models.sale import Sale
+from app.models.vehicle import Vehicle
 from app.schemas.commission import CommissionUpdate
 
 
+def _enrich(c: Commission, db: Session) -> Commission:
+    """Attach human-readable display fields onto the commission object."""
+    staff = db.query(User).filter(User.user_id == c.staff_id).first()
+    c.staff_name = staff.full_name if staff else None
+    sale = db.query(Sale).filter(Sale.sale_id == c.sale_id).first()
+    if sale:
+        v = db.query(Vehicle).filter(Vehicle.vehicle_id == sale.vehicle_id).first()
+        c.vehicle_info = f"{v.year} {v.make} {v.model}" if v else None
+    else:
+        c.vehicle_info = None
+    return c
+
+
 def get_commission(db: Session, commission_id: int) -> Optional[Commission]:
-    return db.query(Commission).filter(Commission.commission_id == commission_id).first()
+    c = db.query(Commission).filter(Commission.commission_id == commission_id).first()
+    if c:
+        _enrich(c, db)
+    return c
 
 
 def get_commissions(
@@ -24,7 +42,10 @@ def get_commissions(
         q = q.filter(Commission.staff_id == staff_id)
     if status:
         q = q.filter(Commission.status == status)
-    return q.order_by(Commission.created_at.desc()).offset(skip).limit(limit).all()
+    commissions = q.order_by(Commission.created_at.desc()).offset(skip).limit(limit).all()
+    for c in commissions:
+        _enrich(c, db)
+    return commissions
 
 
 def update_commission(db: Session, commission_id: int, obj_in: CommissionUpdate) -> Optional[Commission]:
@@ -38,6 +59,7 @@ def update_commission(db: Session, commission_id: int, obj_in: CommissionUpdate)
         setattr(commission, field, value)
     db.commit()
     db.refresh(commission)
+    _enrich(commission, db)
     return commission
 
 

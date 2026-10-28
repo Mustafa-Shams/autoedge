@@ -8,6 +8,7 @@ import {
   Wrench,
   DollarSign,
   LogOut,
+  X,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -56,7 +57,7 @@ const navItems = [
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onClose }) {
   const { role, user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -68,16 +69,23 @@ export default function Sidebar() {
   const visibleItems = navItems.filter((item) => item.roles.includes(role));
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-60 bg-bg-card border-r border-bg-border flex flex-col z-40">
-      {/* Logo */}
-      <div className="p-6 border-b border-bg-border">
+    <aside className="h-screen w-60 bg-bg-card border-r border-bg-border flex flex-col">
+      {/* Logo + mobile close */}
+      <div className="p-6 border-b border-bg-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Car className="w-6 h-6 text-accent-blue" />
           <span className="text-lg font-bold text-text-primary tracking-tight">
             AutoEdge
           </span>
         </div>
-        <p className="text-xs text-text-muted mt-1">Car Showroom Management</p>
+        {/* Close button — mobile only */}
+        <button
+          onClick={onClose}
+          className="lg:hidden text-text-muted hover:text-text-primary"
+          aria-label="Close menu"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Nav Links */}
@@ -86,6 +94,7 @@ export default function Sidebar() {
           <NavLink
             key={to}
             to={to}
+            onClick={onClose}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 isActive
@@ -126,4 +135,3 @@ export default function Sidebar() {
     </aside>
   );
 }
-

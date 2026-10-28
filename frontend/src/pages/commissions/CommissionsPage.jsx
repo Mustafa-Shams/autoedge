@@ -24,18 +24,35 @@ export default function CommissionsPage() {
 
   const approveMutation = useMutation({
     mutationFn: ({ id, status }) => commissionsApi.update(id, { status }),
-    onSuccess: () => queryClient.invalidateQueries(["commissions"]),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["commissions"] }),
   });
 
   const totalPages = Math.max(1, Math.ceil(commissions.length / PAGE_SIZE));
 
   const columns = [
-    { key: "staff_id", label: "Staff ID" },
-    { key: "sale_id", label: "Sale ID" },
+    {
+      key: "staff_name",
+      label: "Staff",
+      render: (v, row) => v ?? `Staff #${row.staff_id}`,
+    },
+    {
+      key: "vehicle_info",
+      label: "Vehicle",
+      render: (v, row) => v ?? `Sale #${row.sale_id}`,
+    },
     { key: "rate_percent", label: "Rate", render: (v) => `${v}%` },
-    { key: "commission_amt", label: "Amount", render: (v) => formatCurrency(v) },
+    {
+      key: "commission_amt",
+      label: "Amount",
+      render: (v) => formatCurrency(v),
+    },
     { key: "created_at", label: "Date", render: (v) => formatDate(v) },
-    { key: "status", label: "Status", render: (v) => <StatusBadge status={v} /> },
+    {
+      key: "status",
+      label: "Status",
+      render: (v) => <StatusBadge status={v} />,
+    },
     ...(role === "manager"
       ? [
           {
@@ -45,7 +62,13 @@ export default function CommissionsPage() {
               <div className="flex gap-2">
                 {row.status === "Pending" && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); approveMutation.mutate({ id: row.commission_id, status: "Approved" }); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      approveMutation.mutate({
+                        id: row.commission_id,
+                        status: "Approved",
+                      });
+                    }}
                     className="text-xs px-2 py-1 rounded bg-status-scheduled/20 text-status-scheduled hover:bg-status-scheduled/30"
                   >
                     Approve
@@ -53,7 +76,13 @@ export default function CommissionsPage() {
                 )}
                 {row.status === "Approved" && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); approveMutation.mutate({ id: row.commission_id, status: "Paid" }); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      approveMutation.mutate({
+                        id: row.commission_id,
+                        status: "Paid",
+                      });
+                    }}
                     className="text-xs px-2 py-1 rounded bg-status-available/20 text-status-available hover:bg-status-available/30"
                   >
                     Mark Paid
@@ -72,14 +101,19 @@ export default function CommissionsPage() {
         <div>
           <h2 className="text-2xl font-bold text-text-primary">Commissions</h2>
           <p className="text-sm text-text-secondary mt-0.5">
-            {role === "manager" ? "All staff commissions" : "Your commissions"}
+            {role === "manager"
+              ? "All staff commissions"
+              : "Your commissions"}
           </p>
         </div>
 
         {isLoading ? (
           <LoadingSpinner />
         ) : commissions.length === 0 ? (
-          <EmptyState title="No commissions yet" message="Commissions are auto-created when a completed sale is recorded." />
+          <EmptyState
+            title="No commissions yet"
+            message="Commissions are auto-created when a completed sale is recorded."
+          />
         ) : (
           <DataTable
             columns={columns}
@@ -93,4 +127,3 @@ export default function CommissionsPage() {
     </PageWrapper>
   );
 }
-

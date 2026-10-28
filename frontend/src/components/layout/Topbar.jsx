@@ -1,4 +1,5 @@
 import { useLocation } from "react-router-dom";
+import { Menu } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 
 const PAGE_TITLES = {
@@ -25,7 +26,7 @@ const ROLE_COLORS = {
   receptionist: "bg-status-sold/20 text-status-sold",
 };
 
-export default function Topbar() {
+export default function Topbar({ onMenuClick }) {
   const location = useLocation();
   const { role, user } = useAuth();
 
@@ -35,8 +36,18 @@ export default function Topbar() {
     )?.[1] ?? "AutoEdge";
 
   return (
-    <header className="fixed top-0 left-60 right-0 h-16 bg-bg-card border-b border-bg-border flex items-center justify-between px-6 z-30">
-      <h1 className="text-xl font-semibold text-text-primary">{title}</h1>
+    <header className="fixed top-0 left-0 right-0 lg:left-60 h-16 bg-bg-card border-b border-bg-border flex items-center justify-between px-4 sm:px-6 z-30">
+      <div className="flex items-center gap-3">
+        {/* Hamburger — mobile only */}
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden text-text-muted hover:text-text-primary"
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <h1 className="text-xl font-semibold text-text-primary">{title}</h1>
+      </div>
       <div className="flex items-center gap-3">
         <span
           className={`text-xs font-medium px-2.5 py-1 rounded-full ${
@@ -45,9 +56,10 @@ export default function Topbar() {
         >
           {ROLE_LABELS[role] ?? role}
         </span>
-        <span className="text-sm text-text-secondary">{user?.full_name}</span>
+        <span className="hidden sm:block text-sm text-text-secondary">
+          {user?.full_name}
+        </span>
       </div>
     </header>
   );
 }
-

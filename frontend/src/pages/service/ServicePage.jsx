@@ -14,12 +14,34 @@ const PAGE_SIZE = 10;
 const STATUS_OPTIONS = ["", "Pending", "In Progress", "Completed", "Cancelled"];
 
 const COLUMNS = [
-  { key: "vehicle_id", label: "Vehicle ID" },
-  { key: "customer_id", label: "Customer ID" },
+  {
+    key: "vehicle_info",
+    label: "Vehicle",
+    render: (v, row) => v ?? `Vehicle #${row.vehicle_id}`,
+  },
+  {
+    key: "customer_name",
+    label: "Customer",
+    render: (v, row) => v ?? `Customer #${row.customer_id}`,
+  },
   { key: "job_type", label: "Job Type" },
+  {
+    key: "technician_name",
+    label: "Technician",
+    render: (v) =>
+      v ?? <span className="text-text-muted italic">Unassigned</span>,
+  },
   { key: "job_date", label: "Date", render: (v) => formatDate(v) },
-  { key: "estimated_cost", label: "Est. Cost", render: (v) => v ? formatCurrency(v) : "—" },
-  { key: "final_cost", label: "Final Cost", render: (v) => v ? formatCurrency(v) : "—" },
+  {
+    key: "estimated_cost",
+    label: "Est. Cost",
+    render: (v) => (v ? formatCurrency(v) : "—"),
+  },
+  {
+    key: "final_cost",
+    label: "Final Cost",
+    render: (v) => (v ? formatCurrency(v) : "—"),
+  },
   { key: "status", label: "Status", render: (v) => <StatusBadge status={v} /> },
 ];
 
@@ -31,7 +53,11 @@ export default function ServicePage() {
   const { data: jobs = [], isLoading } = useQuery({
     queryKey: ["service-jobs", statusFilter, page],
     queryFn: () =>
-      serviceApi.list({ skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE, status: statusFilter || undefined }),
+      serviceApi.list({
+        skip: (page - 1) * PAGE_SIZE,
+        limit: PAGE_SIZE,
+        status: statusFilter || undefined,
+      }),
   });
 
   const totalPages = Math.max(1, Math.ceil(jobs.length / PAGE_SIZE));
@@ -41,8 +67,12 @@ export default function ServicePage() {
       <div className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-text-primary">Service Jobs</h2>
-            <p className="text-sm text-text-secondary mt-0.5">Manage vehicle service and maintenance</p>
+            <h2 className="text-2xl font-bold text-text-primary">
+              Service Jobs
+            </h2>
+            <p className="text-sm text-text-secondary mt-0.5">
+              Manage vehicle service and maintenance
+            </p>
           </div>
           <button
             onClick={() => navigate("/service/new")}
@@ -52,17 +82,31 @@ export default function ServicePage() {
           </button>
         </div>
 
-        <div className="relative w-48">
+        <div className="relative w-52">
           <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="w-full bg-bg-elevated border border-bg-border text-text-primary rounded-lg pl-9 pr-8 py-2 text-sm focus:outline-none focus:border-accent-blue appearance-none">
-            {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s || "All Statuses"}</option>)}
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
+            className="w-full bg-bg-elevated border border-bg-border text-text-primary rounded-lg pl-9 pr-8 py-2 text-sm focus:outline-none focus:border-accent-blue appearance-none"
+          >
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {s || "All Statuses"}
+              </option>
+            ))}
           </select>
         </div>
 
         {isLoading ? (
           <LoadingSpinner />
         ) : jobs.length === 0 ? (
-          <EmptyState title="No service jobs found" message="Create your first service job." />
+          <EmptyState
+            title="No service jobs found"
+            message="Create your first service job."
+          />
         ) : (
           <DataTable
             columns={COLUMNS}
@@ -77,4 +121,3 @@ export default function ServicePage() {
     </PageWrapper>
   );
 }
-

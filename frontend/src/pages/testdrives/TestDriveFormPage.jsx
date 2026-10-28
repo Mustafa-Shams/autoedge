@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { testDrivesApi } from "../../api/testDrivesApi";
 import { vehiclesApi } from "../../api/vehiclesApi";
 import { customersApi } from "../../api/customersApi";
+import axiosInstance from "../../api/axiosInstance";
 import PageWrapper from "../../components/layout/PageWrapper";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 
@@ -34,30 +35,63 @@ export default function TestDriveFormPage() {
     queryFn: () => customersApi.list({ limit: 200 }),
   });
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
+  // Fetch sales executives to assign
+  const { data: salesStaff = [] } = useQuery({
+    queryKey: ["users-sales-executive"],
+    queryFn: () =>
+      axiosInstance
+        .get("/api/v1/users/", { params: { role: "sales_executive", limit: 100 } })
+        .then((r) => r.data),
+  });
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm({
     defaultValues: { status: "Scheduled", lead_status: "New" },
   });
 
   useEffect(() => {
-    if (existing) reset({ ...existing, scheduled_date: existing.scheduled_date?.slice(0, 10) });
+    if (existing)
+      reset({
+        ...existing,
+        scheduled_date: existing.scheduled_date?.slice(0, 10),
+      });
   }, [existing, reset]);
 
   const mutation = useMutation({
     mutationFn: (data) =>
-      isEdit ? testDrivesApi.update(id, data) : testDrivesApi.create(data),
+      isEdit
+        ? testDrivesApi.update(id, data)
+        : testDrivesApi.create({
+            ...data,
+            customer_id: parseInt(data.customer_id),
+            vehicle_id: parseInt(data.vehicle_id),
+            assigned_to: data.assigned_to ? parseInt(data.assigned_to) : null,
+          }),
     onSuccess: () => {
-      queryClient.invalidateQueries(["test-drives"]);
+      queryClient.invalidateQueries({ queryKey: ["test-drives"] });
       navigate("/test-drives");
     },
   });
 
-  if (isEdit && loadingExisting) return <PageWrapper><LoadingSpinner /></PageWrapper>;
+  if (isEdit && loadingExisting)
+    return (
+      <PageWrapper>
+        <LoadingSpinner />
+      </PageWrapper>
+    );
 
   return (
     <PageWrapper>
       <div className="max-w-2xl space-y-5">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/test-drives")} className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary">
+          <button
+            onClick={() => navigate("/test-drives")}
+            className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary"
+          >
             <ArrowLeft className="w-4 h-4" /> Back
           </button>
           <h2 className="text-2xl font-bold text-text-primary">
@@ -65,55 +99,126 @@ export default function TestDriveFormPage() {
           </h2>
         </div>
 
-        <form onSubmit={handleSubmit((d) => mutation.mutateAsync({
-          ...d,
-          customer_id: parseInt(d.customer_id),
-          vehicle_id: parseInt(d.vehicle_id),
-          assigned_to: d.assigned_to ? parseInt(d.assigned_to) : null,
-        }))} className="bg-bg-card border border-bg-border rounded-xl p-6 space-y-4">
+        <form
+          onSubmit={handleSubmit((d) =>
+            mutation.mutateAsync({
+              ...d,
+              customer_id: parseInt(d.customer_id),
+              vehicle_id: parseInt(d.vehicle_id),
+              assigned_to: d.assigned_to ? parseInt(d.assigned_to) : null,
+            })
+          )}
+          className="bg-bg-card border border-bg-border rounded-xl p-6 space-y-4"
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Customer" error={errors.customer_id?.message}>
-              <select {...register("customer_id", { required: "Customer is required" })} className="input">
+              <select
+                {...register("customer_id", {
+                  required: "Customer is required",
+                })}
+                className="input"
+              >
                 <option value="">Select customer...</option>
                 {customers.map((c) => (
-                  <option key={c.customer_id} value={c.customer_id}>{c.full_name} — {c.phone}</option>
+                  <option key={c.customer_id} value={c.customer_id}>
+                    {c.full_name} — {c.phone}
+                  </option>
                 ))}
               </select>
             </Field>
+
             <Field label="Vehicle" error={errors.vehicle_id?.message}>
-              <select {...register("vehicle_id", { required: "Vehicle is required" })} className="input">
+              <select
+                {...register("vehicle_id", { required: "Vehicle is required" })}
+                className="input"
+              >
                 <option value="">Select vehicle...</option>
                 {vehicles.map((v) => (
-                  <option key={v.vehicle_id} value={v.vehicle_id}>{v.year} {v.make} {v.model} — {v.status}</option>
+                  <option key={v.vehicle_id} value={v.vehicle_id}>
+                    {v.year} {v.make} {v.model}
+                  </option>
                 ))}
               </select>
             </Field>
-            <Field label="Scheduled Date" error={errors.scheduled_date?.message}>
-              <input type="date" {...register("scheduled_date", { required: "Date is required" })} className="input" />
+
+            <Field
+              label="Scheduled Date"
+              error={errors.scheduled_date?.message}
+            >
+              <input
+                type="date"
+                {...register("scheduled_date", {
+                  required: "Date is required",
+                })}
+                className="input"
+              />
             </Field>
-            <Field label="Status">
-              <select {...register("status")} className="input">
-                {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+
+            <Field label="Assign To (Sales Executive)">
+              <select {...register("assigned_to")} className="input">
+                <option value="">Unassigned</option>
+                {salesStaff.map((u) => (
+                  <option key={u.user_id} value={u.user_id}>
+                    {u.full_name}
+                  </option>
+                ))}
               </select>
             </Field>
+
+            <Field label="Status">
+              <select {...register("status")} className="input">
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
             <Field label="Lead Status">
               <select {...register("lead_status")} className="input">
-                {LEAD_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                {LEAD_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
               </select>
             </Field>
           </div>
+
           <Field label="Notes">
-            <textarea {...register("notes")} rows={3} className="input resize-none" placeholder="Additional notes..." />
+            <textarea
+              {...register("notes")}
+              rows={3}
+              className="input resize-none"
+              placeholder="Additional notes..."
+            />
           </Field>
 
           {mutation.isError && (
-            <p className="text-sm text-status-cancelled">{mutation.error?.response?.data?.detail ?? "An error occurred."}</p>
+            <p className="text-sm text-status-cancelled">
+              {mutation.error?.response?.data?.detail ?? "An error occurred."}
+            </p>
           )}
 
           <div className="flex gap-3 justify-end pt-2">
-            <button type="button" onClick={() => navigate("/test-drives")} className="px-4 py-2 rounded-lg text-sm border border-bg-border text-text-secondary hover:bg-bg-elevated">Cancel</button>
-            <button type="submit" disabled={isSubmitting || mutation.isPending} className="px-4 py-2 rounded-lg text-sm font-medium bg-accent-blue hover:bg-accent-blueHover text-white disabled:opacity-60">
-              {isSubmitting || mutation.isPending ? "Saving..." : isEdit ? "Update" : "Book Test Drive"}
+            <button
+              type="button"
+              onClick={() => navigate("/test-drives")}
+              className="px-4 py-2 rounded-lg text-sm border border-bg-border text-text-secondary hover:bg-bg-elevated"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting || mutation.isPending}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-accent-blue hover:bg-accent-blueHover text-white disabled:opacity-60"
+            >
+              {isSubmitting || mutation.isPending
+                ? "Saving..."
+                : isEdit
+                ? "Update"
+                : "Book Test Drive"}
             </button>
           </div>
         </form>
@@ -125,10 +230,11 @@ export default function TestDriveFormPage() {
 function Field({ label, error, children }) {
   return (
     <div>
-      <label className="block text-xs font-medium uppercase tracking-wide text-text-muted mb-1.5">{label}</label>
+      <label className="block text-xs font-medium uppercase tracking-wide text-text-muted mb-1.5">
+        {label}
+      </label>
       {children}
       {error && <p className="text-xs text-status-cancelled mt-1">{error}</p>}
     </div>
   );
 }
-

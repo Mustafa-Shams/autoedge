@@ -15,8 +15,21 @@ const STATUS_OPTIONS = ["", "Scheduled", "Completed", "Cancelled", "No-Show"];
 const LEAD_OPTIONS = ["", "New", "Interested", "Hot", "Converted", "Lost"];
 
 const COLUMNS = [
-  { key: "customer_id", label: "Customer ID" },
-  { key: "vehicle_id", label: "Vehicle ID" },
+  {
+    key: "customer_name",
+    label: "Customer",
+    render: (v, row) => v ?? `Customer #${row.customer_id}`,
+  },
+  {
+    key: "vehicle_info",
+    label: "Vehicle",
+    render: (v, row) => v ?? `Vehicle #${row.vehicle_id}`,
+  },
+  {
+    key: "assigned_staff_name",
+    label: "Assigned To",
+    render: (v) => v ?? <span className="text-text-muted italic">Unassigned</span>,
+  },
   { key: "scheduled_date", label: "Date", render: (v) => formatDate(v) },
   { key: "status", label: "Status", render: (v) => <StatusBadge status={v} /> },
   { key: "lead_status", label: "Lead", render: (v) => <StatusBadge status={v} /> },
@@ -46,8 +59,12 @@ export default function TestDrivesPage() {
       <div className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-text-primary">Test Drives</h2>
-            <p className="text-sm text-text-secondary mt-0.5">Manage test drive bookings and leads</p>
+            <h2 className="text-2xl font-bold text-text-primary">
+              Test Drives
+            </h2>
+            <p className="text-sm text-text-secondary mt-0.5">
+              Manage test drive bookings and leads
+            </p>
           </div>
           <button
             onClick={() => navigate("/test-drives/new")}
@@ -60,14 +77,36 @@ export default function TestDrivesPage() {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-            <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="bg-bg-elevated border border-bg-border text-text-primary rounded-lg pl-9 pr-8 py-2 text-sm focus:outline-none focus:border-accent-blue appearance-none">
-              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s || "All Statuses"}</option>)}
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="bg-bg-elevated border border-bg-border text-text-primary rounded-lg pl-9 pr-8 py-2 text-sm focus:outline-none focus:border-accent-blue appearance-none"
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s || "All Statuses"}
+                </option>
+              ))}
             </select>
           </div>
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-            <select value={leadFilter} onChange={(e) => { setLeadFilter(e.target.value); setPage(1); }} className="bg-bg-elevated border border-bg-border text-text-primary rounded-lg pl-9 pr-8 py-2 text-sm focus:outline-none focus:border-accent-blue appearance-none">
-              {LEAD_OPTIONS.map((s) => <option key={s} value={s}>{s || "All Leads"}</option>)}
+            <select
+              value={leadFilter}
+              onChange={(e) => {
+                setLeadFilter(e.target.value);
+                setPage(1);
+              }}
+              className="bg-bg-elevated border border-bg-border text-text-primary rounded-lg pl-9 pr-8 py-2 text-sm focus:outline-none focus:border-accent-blue appearance-none"
+            >
+              {LEAD_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s || "All Leads"}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -75,7 +114,10 @@ export default function TestDrivesPage() {
         {isLoading ? (
           <LoadingSpinner />
         ) : testDrives.length === 0 ? (
-          <EmptyState title="No test drives found" message="Book a test drive to get started." />
+          <EmptyState
+            title="No test drives found"
+            message="Book a test drive to get started."
+          />
         ) : (
           <DataTable
             columns={COLUMNS}
@@ -83,11 +125,12 @@ export default function TestDrivesPage() {
             page={page}
             totalPages={totalPages}
             onPageChange={setPage}
-            onRowClick={(row) => navigate(`/test-drives/${row.test_drive_id}/edit`)}
+            onRowClick={(row) =>
+              navigate(`/test-drives/${row.test_drive_id}/edit`)
+            }
           />
         )}
       </div>
     </PageWrapper>
   );
 }
-

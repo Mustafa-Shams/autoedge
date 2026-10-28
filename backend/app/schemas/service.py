@@ -57,3 +57,7 @@ class ServiceJobResponse(ServiceJobBase):
     job_id: int
     created_at: datetime
     parts: List[ServicePartResponse] = []
+    # Enriched display fields (populated by CRUD layer)
+    vehicle_info: Optional[str] = None     # "2023 Toyota Camry"
+    customer_name: Optional[str] = None    # "Ali Hassan"
+    technician_name: Optional[str] = None  # "Tom Tech"

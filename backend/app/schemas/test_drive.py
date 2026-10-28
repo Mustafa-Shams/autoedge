@@ -30,3 +30,7 @@ class TestDriveResponse(TestDriveBase):
 
     test_drive_id: int
     booking_date: datetime
+    # Enriched display fields (populated by CRUD layer)
+    customer_name: Optional[str] = None        # "Ali Hassan"
+    vehicle_info: Optional[str] = None         # "2023 Toyota Camry"
+    assigned_staff_name: Optional[str] = None  # "Sarah Sales"

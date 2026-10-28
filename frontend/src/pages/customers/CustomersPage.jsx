@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Search } from "lucide-react";
 import { customersApi } from "../../api/customersApi";
+import { useDebounce } from "../../hooks/useDebounce";
 import PageWrapper from "../../components/layout/PageWrapper";
 import DataTable from "../../components/common/DataTable";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
@@ -24,13 +25,16 @@ export default function CustomersPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
+  // Debounce the search input
+  const debouncedSearch = useDebounce(search, 400);
+
   const { data: customers = [], isLoading } = useQuery({
-    queryKey: ["customers", search, page],
+    queryKey: ["customers", debouncedSearch, page],
     queryFn: () =>
       customersApi.list({
         skip: (page - 1) * PAGE_SIZE,
         limit: PAGE_SIZE,
-        search: search || undefined,
+        search: debouncedSearch || undefined,
       }),
   });
 
@@ -61,7 +65,10 @@ export default function CustomersPage() {
             type="text"
             placeholder="Search by name, phone, email..."
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             className="w-full bg-bg-elevated border border-bg-border text-text-primary rounded-lg pl-9 pr-3 py-2 text-sm placeholder-text-muted focus:outline-none focus:border-accent-blue"
           />
         </div>
@@ -69,7 +76,10 @@ export default function CustomersPage() {
         {isLoading ? (
           <LoadingSpinner />
         ) : customers.length === 0 ? (
-          <EmptyState title="No customers found" message="Add your first customer to get started." />
+          <EmptyState
+            title="No customers found"
+            message="Add your first customer to get started."
+          />
         ) : (
           <DataTable
             columns={COLUMNS}
@@ -84,4 +94,3 @@ export default function CustomersPage() {
     </PageWrapper>
   );
 }
-

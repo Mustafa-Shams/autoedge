@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Search, Filter } from "lucide-react";
 import { vehiclesApi } from "../../api/vehiclesApi";
+import { useDebounce } from "../../hooks/useDebounce";
 import PageWrapper from "../../components/layout/PageWrapper";
 import DataTable from "../../components/common/DataTable";
 import StatusBadge from "../../components/common/StatusBadge";
@@ -40,14 +41,17 @@ export default function VehiclesPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
 
+  // Debounce search so we don't fire on every keystroke
+  const debouncedSearch = useDebounce(search, 400);
+
   const { data: vehicles = [], isLoading } = useQuery({
-    queryKey: ["vehicles", search, statusFilter, page],
+    queryKey: ["vehicles", debouncedSearch, statusFilter, page],
     queryFn: () =>
       vehiclesApi.list({
         skip: (page - 1) * PAGE_SIZE,
         limit: PAGE_SIZE,
         status: statusFilter || undefined,
-        make: search || undefined,
+        make: debouncedSearch || undefined,
       }),
   });
 
@@ -80,11 +84,11 @@ export default function VehiclesPage() {
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
+          <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
             <input
               type="text"
-              placeholder="Search by make or model..."
+              placeholder="Search by make..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -134,4 +138,3 @@ export default function VehiclesPage() {
     </PageWrapper>
   );
 }
-

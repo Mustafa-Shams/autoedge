@@ -32,6 +32,10 @@ class SaleResponse(SaleBase):
 
     sale_id: int
     sale_date: datetime
+    # Enriched display fields (populated by CRUD layer)
+    vehicle_info: Optional[str] = None    # "2023 Toyota Camry"
+    customer_name: Optional[str] = None   # "Ali Hassan"
+    staff_name: Optional[str] = None      # "Sarah Sales"
 
 
 class SaleStats(BaseModel):

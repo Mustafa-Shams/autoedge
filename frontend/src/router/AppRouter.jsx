@@ -161,6 +161,15 @@ export default function AppRouter() {
             </ProtectedRoute>
           }
         />
+        {/* Service edit route — needed for onRowClick in ServicePage */}
+        <Route
+          path="/service/:id/edit"
+          element={
+            <ProtectedRoute allowedRoles={MANAGER_TECH_RECEP}>
+              <ServiceFormPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Commissions */}
         <Route
@@ -178,4 +187,3 @@ export default function AppRouter() {
     </BrowserRouter>
   );
 }
-
