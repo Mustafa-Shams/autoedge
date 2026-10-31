@@ -16,11 +16,14 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
+    // Trim whitespace so pasted values with leading/trailing spaces don't fail
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
     try {
       // FastAPI OAuth2 form expects form-data
       const form = new URLSearchParams();
-      form.append("username", email);
-      form.append("password", password);
+      form.append("username", trimmedEmail);
+      form.append("password", trimmedPassword);
 
       const res = await axiosInstance.post("/api/v1/auth/login", form, {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -41,9 +44,15 @@ export default function LoginPage() {
         navigate("/vehicles");
       }
     } catch (err) {
-      setError(
-        err.response?.data?.detail ?? "Login failed. Check your credentials."
-      );
+      // Always show a clear, user-friendly message — never leak server internals
+      const status = err.response?.status;
+      if (status === 401 || status === 400) {
+        setError("Invalid email or password. Please try again.");
+      } else if (status >= 500) {
+        setError("Server error. Please try again later.");
+      } else {
+        setError("Invalid email or password. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
