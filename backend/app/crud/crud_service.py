@@ -1,19 +1,45 @@
+"""CRUD operations for service jobs — extended for storefront (spec 6.2).
+
+Service jobs may now reference customer_vehicles instead of vehicles.
+The vehicle_info field shows a vehicle_label built from whichever reference is set.
+"""
 from datetime import date
 from typing import List, Optional
 from sqlalchemy.orm import Session
+
 from app.models.service_job import ServiceJob
 from app.models.service_part import ServicePart
 from app.models.vehicle import Vehicle
 from app.models.customer import Customer
+from app.models.customer_vehicle import CustomerVehicle
 from app.models.user import User
 from app.schemas.service import ServiceJobCreate, ServiceJobUpdate, ServicePartCreate
 
 
 def _enrich(job: ServiceJob, db: Session) -> ServiceJob:
-    """Attach human-readable display fields."""
-    v = db.query(Vehicle).filter(Vehicle.vehicle_id == job.vehicle_id).first()
+    """Attach human-readable display fields.
+
+    Per spec 6.2 / 11.5: existing Service pages show `vehicle_label`
+    built from whichever of vehicle_id / customer_vehicle_id is set.
+    """
+    # Build vehicle_info from vehicle_id or customer_vehicle_id
+    if job.vehicle_id:
+        v = db.query(Vehicle).filter(Vehicle.vehicle_id == job.vehicle_id).first()
+        job.vehicle_info = f"{v.year} {v.make} {v.model}" if v else None
+    elif job.customer_vehicle_id:
+        cv = db.query(CustomerVehicle).filter(
+            CustomerVehicle.cv_id == job.customer_vehicle_id
+        ).first()
+        if cv:
+            job.vehicle_info = f"{cv.year} {cv.make} {cv.model}"
+            if cv.plate_number:
+                job.vehicle_info += f" ({cv.plate_number})"
+        else:
+            job.vehicle_info = None
+    else:
+        job.vehicle_info = None
+
     c = db.query(Customer).filter(Customer.customer_id == job.customer_id).first()
-    job.vehicle_info = f"{v.year} {v.make} {v.model}" if v else None
     job.customer_name = c.full_name if c else None
     if job.technician_id:
         t = db.query(User).filter(User.user_id == job.technician_id).first()

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, Text, Time
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -16,6 +16,10 @@ class TestDrive(Base):
     status = Column(String(20), nullable=False, default="Scheduled")
     notes = Column(Text)
     lead_status = Column(String(20), nullable=False, default="New")
+    # Storefront additions
+    scheduled_time = Column(Time)
+    source = Column(String(10), nullable=False, default="Staff")
+    expires_at = Column(DateTime)
 
     # Relationships
     customer = relationship("Customer", back_populates="test_drives")

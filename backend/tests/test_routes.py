@@ -15,6 +15,8 @@ from app.db.session import engine
 from app.db.base import Base
 
 # Create all tables in SQLite for testing
+# Note: SQLite ignores CHECK constraints and some PG-specific types,
+# but structure is enough for smoke testing
 Base.metadata.create_all(bind=engine)
 
 client = TestClient(app)

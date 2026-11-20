@@ -16,7 +16,9 @@ class SaleBase(BaseModel):
 
 
 class SaleCreate(SaleBase):
-    pass
+    # Storefront reservation / trade-in linkage (spec 7.2)
+    reservation_id: Optional[int] = None
+    trade_in_id: Optional[int] = None
 
 
 class SaleUpdate(BaseModel):
@@ -25,6 +27,9 @@ class SaleUpdate(BaseModel):
     payment_type: Optional[str] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+    # Storefront reservation / trade-in linkage (spec 7.2)
+    reservation_id: Optional[int] = None
+    trade_in_id: Optional[int] = None
 
 
 class SaleResponse(SaleBase):
@@ -32,6 +37,12 @@ class SaleResponse(SaleBase):
 
     sale_id: int
     sale_date: datetime
+    # Storefront additions
+    reservation_id: Optional[int] = None
+    trade_in_id: Optional[int] = None
+    deposit_credit: Decimal = Decimal("0")
+    trade_in_credit: Decimal = Decimal("0")
+    balance_due_at_showroom: Optional[Decimal] = None
     # Enriched display fields (populated by CRUD layer)
     vehicle_info: Optional[str] = None    # "2023 Toyota Camry"
     customer_name: Optional[str] = None   # "Ali Hassan"

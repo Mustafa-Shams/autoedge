@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+/* AutoEdge Design Tokens — same palette as staff dashboard (Article X & XVII) */
+@theme {
+  --color-bg-primary: #0D0F17;
+  --color-bg-card: #161821;
+  --color-bg-elevated: #1E2130;
+  --color-bg-border: #2A2D3E;
+  --color-text-primary: #E8EAF0;
+  --color-text-secondary: #8B90A7;
+  --color-text-muted: #4A4F6A;
+  --color-accent-blue: #4D7FFF;
+  --color-accent-blue-hover: #3D6FEF;
+  --color-status-available: #22C55E;
+  --color-status-reserved: #F59E0B;
+  --color-status-sold: #8B5CF6;
+  --color-status-cancelled: #EF4444;
+  --color-status-scheduled: #3B82F6;
+  --font-family-sans: "Inter", system-ui, sans-serif;
+}
+
+/* Base styles */
+body {
+  @apply bg-bg-primary text-text-primary font-sans;
+  min-height: 100vh;
+}
+
+/* Scrollbar styling for dark theme */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #0D0F17; }
+::-webkit-scrollbar-thumb { background: #2A2D3E; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #4A4F6A; }
+
+/* Focus states for accessibility */
+*:focus-visible {
+  outline: 2px solid #4D7FFF;
+  outline-offset: 2px;
+}

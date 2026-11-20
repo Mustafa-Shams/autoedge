@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Plus, Search, Filter } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Plus, Search, Filter, Eye, EyeOff } from "lucide-react";
 import { vehiclesApi } from "../../api/vehiclesApi";
 import { useDebounce } from "../../hooks/useDebounce";
 import PageWrapper from "../../components/layout/PageWrapper";
@@ -16,27 +16,10 @@ const PAGE_SIZE = 10;
 
 const STATUS_OPTIONS = ["", "Available", "Reserved", "Sold"];
 
-const COLUMNS = [
-  { key: "make", label: "Make" },
-  { key: "model", label: "Model" },
-  { key: "year", label: "Year", width: 80 },
-  { key: "color", label: "Color" },
-  { key: "condition_type", label: "Condition" },
-  {
-    key: "price",
-    label: "Price",
-    render: (val) => formatCurrency(val),
-  },
-  {
-    key: "status",
-    label: "Status",
-    render: (val) => <StatusBadge status={val} />,
-  },
-];
-
 export default function VehiclesPage() {
   const navigate = useNavigate();
   const { role } = useAuth();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
@@ -55,8 +38,93 @@ export default function VehiclesPage() {
       }),
   });
 
-  const canAdd = ["manager", "sales_executive"].includes(role);
+  const canEdit = ["manager", "sales_executive"].includes(role);
+  const canAdd = canEdit;
   const totalPages = Math.max(1, Math.ceil(vehicles.length / PAGE_SIZE));
+
+  // Published toggle mutation
+  const togglePublishMutation = useMutation({
+    mutationFn: ({ vehicleId, is_published }) =>
+      vehiclesApi.update(vehicleId, { is_published }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["vehicles"]);
+    },
+  });
+
+  function handleTogglePublish(e, vehicle) {
+    e.stopPropagation(); // Don't navigate to detail
+    togglePublishMutation.mutate({
+      vehicleId: vehicle.vehicle_id,
+      is_published: !vehicle.is_published,
+    });
+  }
+
+  // Build columns with Stock and Published
+  const COLUMNS = [
+    { key: "make", label: "Make" },
+    { key: "model", label: "Model" },
+    { key: "year", label: "Year", width: 80 },
+    { key: "color", label: "Color" },
+    { key: "condition_type", label: "Condition" },
+    {
+      key: "price",
+      label: "Price",
+      render: (val) => formatCurrency(val),
+    },
+    {
+      key: "stock_quantity",
+      label: "Stock",
+      width: 70,
+      render: (val) => (
+        <span
+          className={`text-sm font-semibold ${
+            val === 0
+              ? "text-status-cancelled"
+              : val <= 3
+              ? "text-yellow-400"
+              : "text-status-available"
+          }`}
+        >
+          {val}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (val) => <StatusBadge status={val} />,
+    },
+    ...(canEdit
+      ? [
+          {
+            key: "is_published",
+            label: "Published",
+            width: 90,
+            render: (val, row) => (
+              <button
+                onClick={(e) => handleTogglePublish(e, row)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  val
+                    ? "bg-status-available/15 text-status-available hover:bg-status-available/25"
+                    : "bg-bg-elevated text-text-muted hover:bg-bg-border"
+                }`}
+                title={val ? "Click to unpublish" : "Click to publish"}
+              >
+                {val ? (
+                  <>
+                    <Eye className="w-3.5 h-3.5" /> Live
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="w-3.5 h-3.5" /> Hidden
+                  </>
+                )}
+              </button>
+            ),
+          },
+        ]
+      : []),
+  ];
 
   return (
     <PageWrapper>

@@ -1,3 +1,9 @@
+"""Vehicle routes — extended for P46 storefront integration.
+
+Spec 10.4: PUT /vehicles/{id} now accepts stock_quantity, description,
+main_image_url, engine, horsepower, seats, drivetrain, is_published.
+Manual stock edits write a stock_movements row (handled in crud_vehicle).
+"""
 from decimal import Decimal
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,6 +15,7 @@ from app.crud.crud_vehicle import (
     create_vehicle, update_vehicle, delete_vehicle,
 )
 from app.schemas.vehicle import VehicleCreate, VehicleUpdate, VehicleResponse
+from app.models.vehicle_image import VehicleImage
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
 
@@ -62,9 +69,9 @@ async def update_vehicle_detail(
     vehicle_id: int,
     vehicle_in: VehicleUpdate,
     db: Session = Depends(get_db),
-    _=Depends(MANAGER_SALES),
+    current_user=Depends(MANAGER_SALES),
 ):
-    v = update_vehicle(db, vehicle_id, vehicle_in)
+    v = update_vehicle(db, vehicle_id, vehicle_in, current_user_id=current_user.user_id)
     if not v:
         raise HTTPException(status_code=404, detail="Vehicle not found")
     return v
@@ -80,3 +87,56 @@ async def delete_vehicle_by_id(
     if not v:
         raise HTTPException(status_code=404, detail="Vehicle not found")
     return v
+
+
+# ── Vehicle image management (spec 10.4) ─────────────────────────────
+
+@router.post("/{vehicle_id}/images", status_code=status.HTTP_201_CREATED)
+async def add_vehicle_image(
+    vehicle_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    _=Depends(MANAGER_SALES),
+):
+    """Add an image to a vehicle. Body: {image_url, sort_order?, credit?, source_url?}"""
+    v = get_vehicle(db, vehicle_id)
+    if not v:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+
+    image = VehicleImage(
+        vehicle_id=vehicle_id,
+        image_url=body["image_url"],
+        sort_order=body.get("sort_order", 0),
+        credit=body.get("credit"),
+        source_url=body.get("source_url"),
+    )
+    db.add(image)
+    db.commit()
+    db.refresh(image)
+    return {
+        "image_id": image.image_id,
+        "vehicle_id": image.vehicle_id,
+        "image_url": image.image_url,
+        "sort_order": image.sort_order,
+        "credit": image.credit,
+        "source_url": image.source_url,
+    }
+
+
+@router.delete("/{vehicle_id}/images/{image_id}")
+async def delete_vehicle_image(
+    vehicle_id: int,
+    image_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(MANAGER_SALES),
+):
+    """Delete a vehicle image."""
+    image = db.query(VehicleImage).filter(
+        VehicleImage.image_id == image_id,
+        VehicleImage.vehicle_id == vehicle_id,
+    ).first()
+    if not image:
+        raise HTTPException(status_code=404, detail="Image not found")
+    db.delete(image)
+    db.commit()
+    return {"detail": "Image deleted"}

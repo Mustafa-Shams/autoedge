@@ -17,9 +17,17 @@ class Sale(Base):
     payment_type = Column(String(30), nullable=False, default="Cash")
     status = Column(String(20), nullable=False, default="Pending")
     notes = Column(Text)
+    # Storefront additions
+    reservation_id = Column(Integer, ForeignKey("reservations.reservation_id"), nullable=True)
+    trade_in_id = Column(Integer, ForeignKey("trade_in_requests.trade_in_id"), nullable=True)
+    deposit_credit = Column(Numeric(12, 2), nullable=False, default=0)
+    trade_in_credit = Column(Numeric(12, 2), nullable=False, default=0)
 
     # Relationships
     vehicle = relationship("Vehicle", back_populates="sales")
     customer = relationship("Customer", back_populates="sales")
     staff = relationship("User", back_populates="sales", foreign_keys=[staff_id])
     commission = relationship("Commission", back_populates="sale", uselist=False)
+    # Storefront
+    reservation = relationship("Reservation", back_populates="sale", foreign_keys=[reservation_id])
+    trade_in = relationship("TradeInRequest", back_populates="sales", foreign_keys=[trade_in_id])

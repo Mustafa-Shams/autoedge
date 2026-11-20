@@ -1,7 +1,14 @@
+"""CRUD operations for vehicles — extended for storefront (spec 10.4).
+
+Manual stock edits via PUT /vehicles/{id} write a stock_movements row
+with reason 'Manual Adjustment' per spec.
+"""
 from decimal import Decimal
 from typing import List, Optional
 from sqlalchemy.orm import Session
+
 from app.models.vehicle import Vehicle
+from app.models.stock_movement import StockMovement
 from app.schemas.vehicle import VehicleCreate, VehicleUpdate
 
 
@@ -48,12 +55,37 @@ def create_vehicle(db: Session, obj_in: VehicleCreate) -> Vehicle:
     return db_vehicle
 
 
-def update_vehicle(db: Session, vehicle_id: int, obj_in: VehicleUpdate) -> Optional[Vehicle]:
+def update_vehicle(
+    db: Session,
+    vehicle_id: int,
+    obj_in: VehicleUpdate,
+    current_user_id: Optional[int] = None,
+) -> Optional[Vehicle]:
     vehicle = get_vehicle(db, vehicle_id)
     if not vehicle:
         return None
-    for field, value in obj_in.model_dump(exclude_unset=True).items():
+
+    data = obj_in.model_dump(exclude_unset=True)
+
+    # Track stock change for stock_movements (spec 10.4 — manual stock edit)
+    old_stock = vehicle.stock_quantity
+    new_stock = data.get("stock_quantity")
+
+    for field, value in data.items():
         setattr(vehicle, field, value)
+
+    # Write stock_movement row if stock changed manually
+    if new_stock is not None and new_stock != old_stock:
+        change_qty = new_stock - old_stock
+        movement = StockMovement(
+            vehicle_id=vehicle_id,
+            change_qty=change_qty,
+            reason="Manual Adjustment",
+            reference_id=None,
+            created_by=current_user_id,
+        )
+        db.add(movement)
+
     db.commit()
     db.refresh(vehicle)
     return vehicle

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -22,8 +22,26 @@ class Vehicle(Base):
     status = Column(String(15), nullable=False, default="Available")
     notes = Column(Text)
     date_added = Column(DateTime, nullable=False, server_default=func.now())
+    # Storefront additions
+    stock_quantity = Column(Integer, nullable=False, default=1)
+    description = Column(Text)
+    main_image_url = Column(Text)
+    engine = Column(String(60))
+    horsepower = Column(Integer)
+    seats = Column(Integer)
+    drivetrain = Column(String(20))
+    is_published = Column(Boolean, nullable=False, default=True)
 
     # Relationships
     test_drives = relationship("TestDrive", back_populates="vehicle")
     sales = relationship("Sale", back_populates="vehicle")
     service_jobs = relationship("ServiceJob", back_populates="vehicle")
+    # Storefront relationships
+    images = relationship("VehicleImage", back_populates="vehicle", cascade="all, delete-orphan",
+                          order_by="VehicleImage.sort_order")
+    reservations = relationship("Reservation", back_populates="vehicle")
+    stock_movements = relationship("StockMovement", back_populates="vehicle")
+    restock_requests = relationship("RestockRequest", back_populates="vehicle")
+    enquiries = relationship("Enquiry", back_populates="vehicle")
+    reviews = relationship("Review", back_populates="vehicle")
+    wishlist_items = relationship("WishlistItem", back_populates="vehicle")

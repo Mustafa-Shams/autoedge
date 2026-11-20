@@ -14,6 +14,15 @@ import SaleFormPage from "../pages/sales/SaleFormPage";
 import ServicePage from "../pages/service/ServicePage";
 import ServiceFormPage from "../pages/service/ServiceFormPage";
 import CommissionsPage from "../pages/commissions/CommissionsPage";
+import EnquiriesPage from "../pages/enquiries/EnquiriesPage";
+import EnquiryThreadPage from "../pages/enquiries/EnquiryThreadPage";
+import RestockPriorityPage from "../pages/restock/RestockPriorityPage";
+import ReviewModerationPage from "../pages/reviews/ReviewModerationPage";
+import TradeInsStaffPage from "../pages/tradeins/TradeInsPage";
+import ServiceBookingsStaffPage from "../pages/servicebookings/ServiceBookingsStaffPage";
+import EmailLogPage from "../pages/emaillog/EmailLogPage";
+import ReservationsStaffPage from "../pages/reservations/ReservationsStaffPage";
+import StaffPage from "../pages/staff/StaffPage";
 
 const ALL_ROLES = ["manager", "sales_executive", "technician", "receptionist"];
 const MANAGER_SALES = ["manager", "sales_executive"];
@@ -177,6 +186,94 @@ export default function AppRouter() {
           element={
             <ProtectedRoute allowedRoles={MANAGER_SALES}>
               <CommissionsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Trade-ins — manager + sales_executive per spec 7.7 */}
+        <Route
+          path="/trade-ins"
+          element={
+            <ProtectedRoute allowedRoles={MANAGER_SALES}>
+              <TradeInsStaffPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Restock Priority — manager + sales_executive per spec 7.4 */}
+        <Route
+          path="/restock-priority"
+          element={
+            <ProtectedRoute allowedRoles={MANAGER_SALES}>
+              <RestockPriorityPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Review Moderation — manager only per spec 7.6 */}
+        <Route
+          path="/reviews"
+          element={
+            <ProtectedRoute allowedRoles={["manager"]}>
+              <ReviewModerationPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Service Bookings — manager, receptionist, technician (own) per spec 9.1 */}
+        <Route
+          path="/service-bookings"
+          element={
+            <ProtectedRoute allowedRoles={MANAGER_TECH_RECEP}>
+              <ServiceBookingsStaffPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Enquiries — manager always; sales_executive/receptionist if handles_enquiries (gated at API + sidebar) */}
+        <Route
+          path="/enquiries"
+          element={
+            <ProtectedRoute allowedRoles={MANAGER_SALES_RECEP}>
+              <EnquiriesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/enquiries/:id"
+          element={
+            <ProtectedRoute allowedRoles={MANAGER_SALES_RECEP}>
+              <EnquiryThreadPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Email Log — manager only per spec 9 */}
+        <Route
+          path="/email-log"
+          element={
+            <ProtectedRoute allowedRoles={["manager"]}>
+              <EmailLogPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Reservations — manager, sales_executive, receptionist per spec 11.5 */}
+        <Route
+          path="/reservations"
+          element={
+            <ProtectedRoute allowedRoles={MANAGER_SALES_RECEP}>
+              <ReservationsStaffPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Staff — manager only per spec 11.5 */}
+        <Route
+          path="/staff"
+          element={
+            <ProtectedRoute allowedRoles={["manager"]}>
+              <StaffPage />
             </ProtectedRoute>
           }
         />

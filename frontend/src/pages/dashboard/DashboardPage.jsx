@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { Car, CheckCircle, TrendingUp, Wrench, DollarSign } from "lucide-react";
+import {
+  Car, CheckCircle, TrendingUp, Wrench, DollarSign,
+  Bookmark, CalendarCheck, MessageSquare, PackageX,
+} from "lucide-react";
 import axios from "../../api/axiosInstance";
 import PageWrapper from "../../components/layout/PageWrapper";
 import SalesBarChart from "../../components/charts/SalesBarChart";
@@ -46,7 +49,7 @@ export default function DashboardPage() {
           <p className="text-sm text-text-secondary mt-0.5">Showroom performance overview</p>
         </div>
 
-        {/* KPI Cards */}
+        {/* Original KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <StatCard icon={Car} label="Total Vehicles" value={stats?.total_vehicles ?? 0} />
           <StatCard icon={CheckCircle} label="Available" value={stats?.available_vehicles ?? 0} color="text-status-available" />
@@ -58,6 +61,39 @@ export default function DashboardPage() {
             color="text-status-available"
           />
           <StatCard icon={Wrench} label="Pending Service" value={stats?.pending_service_jobs ?? 0} color="text-status-reserved" />
+        </div>
+
+        {/* P46: Storefront KPI Cards */}
+        <div>
+          <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide mb-3">
+            Storefront Activity
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              icon={Bookmark}
+              label="Active Reservations"
+              value={stats?.active_reservations ?? 0}
+              color="text-accent-blue"
+            />
+            <StatCard
+              icon={CalendarCheck}
+              label="Pending Test Drive Requests"
+              value={stats?.pending_test_drive_requests ?? 0}
+              color="text-yellow-400"
+            />
+            <StatCard
+              icon={MessageSquare}
+              label="Open Enquiries"
+              value={stats?.open_enquiries ?? 0}
+              color="text-purple-400"
+            />
+            <StatCard
+              icon={PackageX}
+              label="Out-of-Stock with Requests"
+              value={stats?.out_of_stock_with_requests ?? 0}
+              color="text-status-cancelled"
+            />
+          </div>
         </div>
 
         {/* Charts Row */}
@@ -107,4 +143,3 @@ export default function DashboardPage() {
     </PageWrapper>
   );
 }
-

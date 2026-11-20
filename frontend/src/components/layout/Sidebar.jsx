@@ -4,9 +4,17 @@ import {
   Car,
   Users,
   CalendarCheck,
+  CalendarClock,
   ShoppingCart,
   Wrench,
   DollarSign,
+  MessageSquare,
+  Mail,
+  Package,
+  Star,
+  ArrowRightLeft,
+  Bookmark,
+  UserCog,
   LogOut,
   X,
 } from "lucide-react";
@@ -44,9 +52,21 @@ const navItems = [
     roles: ["manager", "sales_executive"],
   },
   {
+    to: "/reservations",
+    label: "Reservations",
+    icon: Bookmark,
+    roles: ["manager", "sales_executive", "receptionist"],
+  },
+  {
     to: "/service",
     label: "Service",
     icon: Wrench,
+    roles: ["manager", "technician", "receptionist"],
+  },
+  {
+    to: "/service-bookings",
+    label: "Service Bookings",
+    icon: CalendarClock,
     roles: ["manager", "technician", "receptionist"],
   },
   {
@@ -54,6 +74,44 @@ const navItems = [
     label: "Commissions",
     icon: DollarSign,
     roles: ["manager", "sales_executive"],
+  },
+  {
+    to: "/trade-ins",
+    label: "Trade-Ins",
+    icon: ArrowRightLeft,
+    roles: ["manager", "sales_executive"],
+  },
+  {
+    to: "/restock-priority",
+    label: "Restock Priority",
+    icon: Package,
+    roles: ["manager", "sales_executive"],
+  },
+  {
+    to: "/reviews",
+    label: "Reviews",
+    icon: Star,
+    roles: ["manager"],
+  },
+  {
+    to: "/enquiries",
+    label: "Enquiries",
+    icon: MessageSquare,
+    // Per spec 9: manager always, sales_executive/receptionist only if handles_enquiries, technicians never
+    roles: ["manager", "sales_executive", "receptionist"],
+    requiresEnquiryAccess: true,
+  },
+  {
+    to: "/email-log",
+    label: "Email Log",
+    icon: Mail,
+    roles: ["manager"],
+  },
+  {
+    to: "/staff",
+    label: "Staff",
+    icon: UserCog,
+    roles: ["manager"],
   },
 ];
 
@@ -66,7 +124,14 @@ export default function Sidebar({ onClose }) {
     navigate("/login");
   }
 
-  const visibleItems = navItems.filter((item) => item.roles.includes(role));
+  const visibleItems = navItems.filter((item) => {
+    if (!item.roles.includes(role)) return false;
+    // Enquiry access gating: manager always; others only if handles_enquiries
+    if (item.requiresEnquiryAccess && role !== "manager") {
+      return !!user?.handles_enquiries;
+    }
+    return true;
+  });
 
   return (
     <aside className="h-screen w-60 bg-bg-card border-r border-bg-border flex flex-col">

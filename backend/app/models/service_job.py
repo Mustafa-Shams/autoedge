@@ -8,7 +8,7 @@ class ServiceJob(Base):
     __tablename__ = "service_jobs"
 
     job_id = Column(Integer, primary_key=True, index=True)
-    vehicle_id = Column(Integer, ForeignKey("vehicles.vehicle_id", ondelete="RESTRICT"), nullable=False)
+    vehicle_id = Column(Integer, ForeignKey("vehicles.vehicle_id", ondelete="RESTRICT"), nullable=True)
     customer_id = Column(Integer, ForeignKey("customers.customer_id", ondelete="RESTRICT"), nullable=False)
     technician_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)
     job_type = Column(String(50), nullable=False)
@@ -19,9 +19,13 @@ class ServiceJob(Base):
     final_cost = Column(Numeric(10, 2))
     notes = Column(Text)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
+    # Storefront additions
+    customer_vehicle_id = Column(Integer, ForeignKey("customer_vehicles.cv_id", ondelete="RESTRICT"), nullable=True)
 
     # Relationships
     vehicle = relationship("Vehicle", back_populates="service_jobs")
     customer = relationship("Customer", back_populates="service_jobs")
     technician = relationship("User", back_populates="service_jobs", foreign_keys=[technician_id])
     parts = relationship("ServicePart", back_populates="job", cascade="all, delete-orphan")
+    customer_vehicle = relationship("CustomerVehicle", back_populates="service_jobs")
+    storefront_booking = relationship("ServiceBooking", back_populates="job", uselist=False)

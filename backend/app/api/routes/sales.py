@@ -1,10 +1,14 @@
 from typing import List, Optional
+from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user, require_role
 from app.crud.crud_sale import get_sale, get_sales, create_sale, update_sale, get_sale_stats
 from app.schemas.sale import SaleCreate, SaleUpdate, SaleResponse, SaleStats
+from app.models.reservation import Reservation
+from app.models.trade_in_request import TradeInRequest
+from app.models.vehicle import Vehicle
 
 router = APIRouter(prefix="/sales", tags=["sales"])
 
@@ -63,3 +67,66 @@ async def update_sale_detail(
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
     return sale
+
+
+# ── P46: Customer credits for the sales form (spec 11.5) ─────────────
+
+@router.get("/customer-credits/{customer_id}")
+async def get_customer_credits(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(MANAGER_SALES),
+):
+    """Get a customer's Active reservations and Accepted trade-ins for the sales form.
+
+    Per spec 11.5: after choosing a customer, the form shows their Active reservations
+    and Accepted trade-ins; selecting them fills the credits and shows "Balance due at showroom".
+    """
+    # Active reservations
+    reservations = (
+        db.query(Reservation)
+        .filter(
+            Reservation.customer_id == customer_id,
+            Reservation.status == "Active",
+        )
+        .all()
+    )
+    reservation_items = []
+    for r in reservations:
+        v = db.query(Vehicle).filter(Vehicle.vehicle_id == r.vehicle_id).first()
+        vehicle_label = f"{v.year} {v.make} {v.model}" if v else f"Vehicle #{r.vehicle_id}"
+        reservation_items.append({
+            "reservation_id": r.reservation_id,
+            "vehicle_id": r.vehicle_id,
+            "vehicle_label": vehicle_label,
+            "deposit_amount": str(r.deposit_amount),
+            "hold_days": r.hold_days,
+            "reserved_at": r.reserved_at.isoformat() if r.reserved_at else None,
+            "expires_at": r.expires_at.isoformat() if r.expires_at else None,
+        })
+
+    # Accepted trade-ins
+    trade_ins = (
+        db.query(TradeInRequest)
+        .filter(
+            TradeInRequest.customer_id == customer_id,
+            TradeInRequest.status == "Accepted",
+        )
+        .all()
+    )
+    trade_in_items = []
+    for ti in trade_ins:
+        trade_in_items.append({
+            "trade_in_id": ti.trade_in_id,
+            "make": ti.make,
+            "model": ti.model,
+            "year": ti.year,
+            "offered_value": str(ti.offered_value) if ti.offered_value else "0",
+            "target_vehicle_id": ti.target_vehicle_id,
+        })
+
+    return {
+        "customer_id": customer_id,
+        "active_reservations": reservation_items,
+        "accepted_trade_ins": trade_in_items,
+    }

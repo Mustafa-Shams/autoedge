@@ -61,6 +61,18 @@ async def update_job(
     job = update_service_job(db, job_id, job_in)
     if not job:
         raise HTTPException(status_code=404, detail="Service job not found")
+
+    # Spec 7.8 step 7: When service_jobs.status = Completed → linked booking → Completed
+    if job_in.status == "Completed":
+        from app.services.service_booking_service import complete_booking_from_job
+        try:
+            complete_booking_from_job(db, job_id)
+            db.commit()
+            # Re-enrich after commit
+            job = get_service_job(db, job_id)
+        except Exception:
+            pass  # Don't break the job update if booking cascade fails
+
     return job
 
 

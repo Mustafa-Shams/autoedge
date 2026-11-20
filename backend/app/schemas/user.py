@@ -27,3 +27,4 @@ class UserResponse(UserBase):
 
     user_id: int
     created_at: datetime
+    handles_enquiries: bool = False

@@ -6,4 +6,7 @@ export const vehiclesApi = {
   create:    (data)   => api.post("/api/v1/vehicles/", data).then(r => r.data),
   update:    (id, data) => api.put(`/api/v1/vehicles/${id}`, data).then(r => r.data),
   delete:    (id)     => api.delete(`/api/v1/vehicles/${id}`).then(r => r.data),
+  // P46: Vehicle image management
+  addImage:    (vehicleId, data) => api.post(`/api/v1/vehicles/${vehicleId}/images`, data).then(r => r.data),
+  deleteImage: (vehicleId, imageId) => api.delete(`/api/v1/vehicles/${vehicleId}/images/${imageId}`).then(r => r.data),
 };

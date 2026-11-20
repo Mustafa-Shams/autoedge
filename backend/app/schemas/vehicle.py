@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, ConfigDict
 
 
@@ -21,7 +21,15 @@ class VehicleBase(BaseModel):
 
 
 class VehicleCreate(VehicleBase):
-    pass
+    # Storefront fields
+    stock_quantity: int = 1
+    description: Optional[str] = None
+    main_image_url: Optional[str] = None
+    engine: Optional[str] = None
+    horsepower: Optional[int] = None
+    seats: Optional[int] = None
+    drivetrain: Optional[str] = None
+    is_published: bool = True
 
 
 class VehicleUpdate(BaseModel):
@@ -38,6 +46,15 @@ class VehicleUpdate(BaseModel):
     price: Optional[Decimal] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+    # Storefront fields (spec 10.4 / 11.5)
+    stock_quantity: Optional[int] = None
+    description: Optional[str] = None
+    main_image_url: Optional[str] = None
+    engine: Optional[str] = None
+    horsepower: Optional[int] = None
+    seats: Optional[int] = None
+    drivetrain: Optional[str] = None
+    is_published: Optional[bool] = None
 
 
 class VehicleResponse(VehicleBase):
@@ -45,3 +62,12 @@ class VehicleResponse(VehicleBase):
 
     vehicle_id: int
     date_added: datetime
+    # Storefront fields
+    stock_quantity: int = 1
+    description: Optional[str] = None
+    main_image_url: Optional[str] = None
+    engine: Optional[str] = None
+    horsepower: Optional[int] = None
+    seats: Optional[int] = None
+    drivetrain: Optional[str] = None
+    is_published: bool = True
