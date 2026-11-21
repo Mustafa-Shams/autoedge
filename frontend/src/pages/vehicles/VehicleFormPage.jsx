@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
-import { ArrowLeft, Plus, Trash2, Image as ImageIcon } from "lucide-react";
+import { Plus, Trash2, Image as ImageIcon } from "lucide-react";
 import { vehiclesApi } from "../../api/vehiclesApi";
 import PageWrapper from "../../components/layout/PageWrapper";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import BackButton from "../../components/common/BackButton";
 
 const CONDITION_TYPES = ["New", "Used", "Certified"];
 const FUEL_TYPES = ["Petrol", "Diesel", "Electric", "Hybrid"];
@@ -101,13 +102,7 @@ export default function VehicleFormPage() {
       <div className="max-w-3xl space-y-5">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(isEdit ? `/vehicles/${id}` : "/vehicles")}
-            className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
+          <BackButton fallback={isEdit ? `/vehicles/${id}` : "/vehicles"} label="Back" />
           <h2 className="text-2xl font-bold text-text-primary">
             {isEdit ? "Edit Vehicle" : "Add New Vehicle"}
           </h2>

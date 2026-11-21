@@ -1,9 +1,12 @@
 /**
  * AboutPage — static page with "Demo project" note (spec 11.2).
  */
+import BackButton from '../../components/common/BackButton';
+
 export default function AboutPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <BackButton fallback="/" label="Back" className="mb-4" />
       <h1 className="text-3xl font-bold text-text-primary mb-6">About AutoEdge</h1>
 
       <div className="prose prose-invert max-w-none space-y-6">

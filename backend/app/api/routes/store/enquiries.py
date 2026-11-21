@@ -157,7 +157,7 @@ def _msg_response(m: EnquiryMessage) -> dict:
 # ── Routes ───────────────────────────────────────────────────────────
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_enquiry(
     body: CreateEnquiryRequest,
     db: Session = Depends(get_db),
@@ -196,7 +196,7 @@ async def create_enquiry(
     return _to_list_item(enquiry)
 
 
-@router.get("/")
+@router.get("")
 async def list_enquiries(
     status_filter: Optional[str] = None,
     db: Session = Depends(get_db),

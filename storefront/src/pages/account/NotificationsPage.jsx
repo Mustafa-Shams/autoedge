@@ -5,9 +5,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getNotifications, markRead, markAllRead } from '../../api/storeApi';
+import { useNotifications } from '../../contexts/NotificationContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 import { formatRelativeTime } from '../../utils/formatters';
+import BackButton from '../../components/common/BackButton';
 
 const TYPE_ICONS = {
   reservation: '🔒',
@@ -23,6 +25,7 @@ const TYPE_ICONS = {
 
 export default function NotificationsPage() {
   const navigate = useNavigate();
+  const { refreshUnread } = useNotifications();
   const [notifications, setNotifications] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -61,6 +64,7 @@ export default function NotificationsPage() {
             n.notification_id === notification.notification_id ? { ...n, is_read: true } : n
           )
         );
+        refreshUnread();
       } catch {
         // silently fail
       }
@@ -76,6 +80,7 @@ export default function NotificationsPage() {
       setMarkingAll(true);
       await markAllRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      refreshUnread();
     } catch {
       // silently fail
     } finally {
@@ -92,6 +97,7 @@ export default function NotificationsPage() {
 
   return (
     <div>
+      <BackButton fallback="/account" label="Back to Account" className="mb-4" />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-primary mb-1">Notifications</h1>

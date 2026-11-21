@@ -7,6 +7,7 @@ import useAuth from '../../hooks/useAuth';
 import { getProfile, updateProfile, changePassword } from '../../api/storeApi';
 import PasswordField from '../../components/forms/PasswordField';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import BackButton from '../../components/common/BackButton';
 
 export default function ProfilePage() {
   const { customer } = useAuth();
@@ -96,7 +97,10 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-text-primary">Profile</h1>
+      <div>
+        <BackButton fallback="/account" label="Back to Account" className="mb-4" />
+        <h1 className="text-2xl font-bold text-text-primary">Profile</h1>
+      </div>
 
       {/* Profile form */}
       <div className="bg-bg-card border border-bg-border rounded-xl p-6">

@@ -9,6 +9,7 @@ import { getTradeIns, respondToTradeIn, cancelTradeIn } from '../../api/storeApi
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatPrice, formatDate, formatCountdown } from '../../utils/formatters';
+import BackButton from '../../components/common/BackButton';
 
 const STATUS_COLORS = {
   Submitted: 'info',
@@ -85,6 +86,7 @@ export default function TradeInsPage() {
 
   return (
     <div>
+      <BackButton fallback="/account" label="Back to Account" className="mb-4" />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-primary mb-1">My Trade-Ins</h1>

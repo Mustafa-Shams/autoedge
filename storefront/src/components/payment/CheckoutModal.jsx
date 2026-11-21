@@ -313,6 +313,9 @@ export default function CheckoutModal({
                 required
                 autoComplete="current-password"
               />
+              <p className="text-xs text-text-muted mt-1">
+                Use your login password. <a href="/account/bank" className="text-accent-blue hover:underline">View card details →</a>
+              </p>
 
               {/* Error message */}
               {error && (

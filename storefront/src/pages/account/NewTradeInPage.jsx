@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { createTradeIn } from '../../api/storeApi';
 import ImageUploader from '../../components/forms/ImageUploader';
+import BackButton from '../../components/common/BackButton';
 import { formatPrice } from '../../utils/formatters';
 
 const CONDITION_OPTIONS = ['Excellent', 'Good', 'Fair', 'Poor'];
@@ -164,6 +165,8 @@ export default function NewTradeInPage() {
 
   return (
     <div>
+      <BackButton fallback="/account/trade-ins" label="Back to Trade-Ins" className="mb-4" />
+
       <h1 className="text-2xl font-bold text-text-primary mb-2">New Trade-In</h1>
       <p className="text-text-secondary mb-6">Submit your vehicle for a trade-in valuation</p>
 

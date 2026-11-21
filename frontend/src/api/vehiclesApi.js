@@ -10,4 +10,6 @@ export const vehiclesApi = {
   // P46: Vehicle image management
   addImage:    (vehicleId, data) => api.post(`/api/v1/vehicles/${vehicleId}/images`, data).then(r => r.data),
   deleteImage: (vehicleId, imageId) => api.delete(`/api/v1/vehicles/${vehicleId}/images/${imageId}`).then(r => r.data),
+  // Decision #23: Bulk image replacement — atomic save of main + additional images
+  replaceImages: (vehicleId, data) => api.put(`/api/v1/vehicles/${vehicleId}/images/bulk`, data).then(r => r.data),
 };

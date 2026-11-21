@@ -2,12 +2,12 @@ import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
-import { ArrowLeft } from "lucide-react";
 import { serviceApi } from "../../api/serviceApi";
 import { vehiclesApi } from "../../api/vehiclesApi";
 import { customersApi } from "../../api/customersApi";
 import axiosInstance from "../../api/axiosInstance";
 import PageWrapper from "../../components/layout/PageWrapper";
+import BackButton from "../../components/common/BackButton";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 const STATUS_OPTIONS = ["Pending", "In Progress", "Completed", "Cancelled"];
@@ -100,12 +100,7 @@ export default function ServiceFormPage() {
     <PageWrapper>
       <div className="max-w-2xl space-y-5">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate("/service")}
-            className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back
-          </button>
+          <BackButton fallback="/service" label="Back" />
           <h2 className="text-2xl font-bold text-text-primary">
             {isEdit ? "Update Service Job" : "Create Service Job"}
           </h2>

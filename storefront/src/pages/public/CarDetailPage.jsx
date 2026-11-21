@@ -7,13 +7,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getVehicleDetail, getVehicleReviews } from '../../api/publicApi';
-import { requestRestock, createReview } from '../../api/storeApi';
+import { addToWishlist, removeFromWishlist, getWishlist, requestRestock, createReview } from '../../api/storeApi';
 import ImageGallery from '../../components/cars/ImageGallery';
 import SpecTable from '../../components/cars/SpecTable';
 import StockBadge from '../../components/cars/StockBadge';
 import StarRating from '../../components/common/StarRating';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
+import BackButton from '../../components/common/BackButton';
 import CompareBar from '../../components/cars/CompareBar';
 import CheckoutModal from '../../components/payment/CheckoutModal';
 import TestDriveModal from '../../components/cars/TestDriveModal';
@@ -52,6 +53,10 @@ export default function CarDetailPage() {
   const [restockRequested, setRestockRequested] = useState(false);
   const [restockLoading, setRestockLoading] = useState(false);
 
+  // Wishlist state
+  const [inWishlist, setInWishlist] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+
   // EMI mini-calculator state
   const [emiInputs, setEmiInputs] = useState({
     downPaymentPct: EMI_DEFAULTS.downPaymentPct,
@@ -87,6 +92,17 @@ export default function CarDetailPage() {
     };
     fetchData();
   }, [id]);
+
+  // Check wishlist status
+  useEffect(() => {
+    if (!loggedIn) return;
+    getWishlist()
+      .then((res) => {
+        const list = Array.isArray(res.data) ? res.data : [];
+        setInWishlist(list.some((w) => String(w.vehicle_id) === String(id)));
+      })
+      .catch(() => {});
+  }, [id, loggedIn]);
 
   // Load more reviews
   const loadMoreReviews = async () => {
@@ -140,6 +156,9 @@ export default function CarDetailPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Back button */}
+      <BackButton fallback="/cars" label="Back to Cars" className="mb-4" />
+
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-text-muted mb-6">
         <Link to="/" className="hover:text-text-secondary">Home</Link>
@@ -152,9 +171,26 @@ export default function CarDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left column — Gallery + Description */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Gallery */}
+          {/* Gallery — prepend main_image_url as first image (Decision #23) */}
           <ImageGallery
-            images={vehicle.images || []}
+            images={(() => {
+              const gallery = [];
+              if (vehicle.main_image_url) {
+                gallery.push({
+                  image_id: 'main',
+                  image_url: vehicle.main_image_url,
+                  sort_order: -1,
+                });
+              }
+              if (vehicle.images) {
+                gallery.push(
+                  ...vehicle.images.filter(
+                    (img) => img.image_url !== vehicle.main_image_url
+                  )
+                );
+              }
+              return gallery;
+            })()}
             vehicleName={vehicleName}
           />
 
@@ -243,7 +279,7 @@ export default function CarDetailPage() {
         {/* Right column — Pricing, actions, specs, EMI */}
         <div className="space-y-6">
           {/* Pricing card */}
-          <div className="bg-bg-card border border-bg-border rounded-xl p-6 sticky top-20">
+          <div className="bg-bg-card border border-bg-border rounded-xl p-6">
             <div className="mb-4">
               <h1 className="text-xl font-bold text-text-primary">{vehicleName}</h1>
               <div className="flex items-center gap-2 mt-2">
@@ -360,16 +396,35 @@ export default function CarDetailPage() {
               {/* Wishlist + Compare row */}
               <div className="flex items-center gap-3 pt-3 border-t border-bg-border">
                 <button
-                  onClick={() => {
-                    if (!loggedIn) navigate('/login?next=' + encodeURIComponent(`/cars/${id}`));
-                    // TODO: wishlist API in P36
+                  onClick={async () => {
+                    if (!loggedIn) { navigate('/login?next=' + encodeURIComponent(`/cars/${id}`)); return; }
+                    try {
+                      setWishlistLoading(true);
+                      if (inWishlist) {
+                        await removeFromWishlist(vehicle.vehicle_id);
+                        setInWishlist(false);
+                      } else {
+                        await addToWishlist(vehicle.vehicle_id);
+                        setInWishlist(true);
+                      }
+                    } catch (err) {
+                      const detail = err.response?.data?.detail;
+                      if (typeof detail === 'string') alert(detail);
+                    } finally {
+                      setWishlistLoading(false);
+                    }
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 py-2 text-sm text-text-secondary hover:text-status-cancelled bg-bg-elevated rounded-lg transition-colors"
+                  disabled={wishlistLoading}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm rounded-lg transition-colors ${
+                    inWishlist
+                      ? 'text-status-cancelled bg-status-cancelled/10'
+                      : 'text-text-secondary bg-bg-elevated hover:text-status-cancelled'
+                  }`}
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="w-4 h-4" fill={inWishlist ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
                   </svg>
-                  Wishlist
+                  {inWishlist ? 'In Wishlist' : 'Wishlist'}
                 </button>
                 <button
                   onClick={() => toggleCompare(vehicle.vehicle_id)}
@@ -458,7 +513,7 @@ export default function CarDetailPage() {
             </div>
 
             <Link
-              to={`/emi-calculator?price=${vehicle.price}`}
+              to={`/emi-calculator?vehicle=${vehicle.vehicle_id}&price=${vehicle.price}`}
               className="block mt-4 text-center text-xs text-accent-blue hover:text-accent-blue-hover transition-colors"
             >
               Open full EMI calculator →

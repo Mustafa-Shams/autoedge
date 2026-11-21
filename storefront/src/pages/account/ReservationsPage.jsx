@@ -12,6 +12,7 @@ import EmptyState from '../../components/common/EmptyState';
 import StatusBadge from '../../components/common/StatusBadge';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { formatPrice, formatDate, formatDateTime, formatCountdown } from '../../utils/formatters';
+import BackButton from '../../components/common/BackButton';
 
 const STATUS_FILTERS = [
   { value: '', label: 'All Reservations' },
@@ -96,6 +97,7 @@ export default function ReservationsPage() {
 
   return (
     <div>
+      <BackButton fallback="/account" label="Back to Account" className="mb-4" />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">My Reservations</h1>

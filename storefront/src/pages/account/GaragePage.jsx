@@ -4,6 +4,7 @@ import * as storeApi from '../../api/storeApi';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import BackButton from '../../components/common/BackButton';
 
 export default function GaragePage() {
   const [cars, setCars] = useState([]);
@@ -117,6 +118,7 @@ export default function GaragePage() {
 
   return (
     <div>
+      <BackButton fallback="/account" label="Back to Account" className="mb-4" />
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

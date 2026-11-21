@@ -171,7 +171,7 @@ def _to_response(t: TradeInRequest) -> dict:
 # ── Routes ───────────────────────────────────────────────────────────
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_trade_in(
     body: TradeInCreate,
     db: Session = Depends(get_db),
@@ -232,7 +232,7 @@ async def create_trade_in(
     return _to_response(trade_in)
 
 
-@router.get("/")
+@router.get("")
 async def list_my_trade_ins(
     db: Session = Depends(get_db),
     account: CustomerAccount = Depends(get_current_customer),

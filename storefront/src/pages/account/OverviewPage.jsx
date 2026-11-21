@@ -1,11 +1,10 @@
 /**
  * OverviewPage — account overview with shortcuts, active reservations, upcoming events, unread count.
- * Spec 11.2.
+ * Spec 11.2. Uses NotificationContext for unread count (single source of truth with Navbar).
  */
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
-import { getUnreadCount } from '../../api/storeApi';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 const SHORTCUTS = [
   { to: '/account/bank', label: 'Bank Account', icon: '💳', desc: 'View balance and transactions' },
@@ -21,13 +20,7 @@ const SHORTCUTS = [
 
 export default function OverviewPage() {
   const { customer } = useAuth();
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    getUnreadCount()
-      .then((res) => setUnreadCount(res.data.count || 0))
-      .catch(() => {});
-  }, []);
+  const { unreadCount } = useNotifications();
 
   return (
     <div>

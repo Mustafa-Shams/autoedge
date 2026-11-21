@@ -11,6 +11,7 @@ import EmptyState from '../../components/common/EmptyState';
 import PasswordField from '../../components/forms/PasswordField';
 import useAuth from '../../hooks/useAuth';
 import { formatPrice, formatDateTime } from '../../utils/formatters';
+import BackButton from '../../components/common/BackButton';
 
 const TXN_TYPE_FILTERS = [
   { value: '', label: 'All Transactions' },
@@ -26,6 +27,9 @@ export default function BankPage() {
   // Bank summary
   const [bankSummary, setBankSummary] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(true);
+
+  // Sensitive data (full account number, demo CVV)
+  const [sensitiveData, setSensitiveData] = useState(null);
 
   // Transactions
   const [transactions, setTransactions] = useState([]);
@@ -50,6 +54,7 @@ export default function BankPage() {
       setLoadingSummary(true);
       const res = await storeApi.getBankSummary();
       setBankSummary(res.data);
+      storeApi.getSensitiveBankDetails().then(r => setSensitiveData(r.data)).catch(() => {});
     } catch (err) {
       setError('Failed to load bank account.');
     } finally {
@@ -144,6 +149,7 @@ export default function BankPage() {
 
   return (
     <div>
+      <BackButton fallback="/account" label="Back to Account" className="mb-4" />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Bank Account</h1>
@@ -172,6 +178,8 @@ export default function BankPage() {
           cardLast4={bankSummary.card_last4}
           customerName={customer?.full_name || bankSummary.customer_name || 'Account Holder'}
           balance={parseFloat(bankSummary.balance)}
+          accountNumber={sensitiveData?.account_number}
+          demoCvv={sensitiveData?.demo_cvv}
           className="mb-8 max-w-md"
         />
       )}

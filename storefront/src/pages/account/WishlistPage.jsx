@@ -11,6 +11,7 @@ import EmptyState from '../../components/common/EmptyState';
 import StockBadge from '../../components/cars/StockBadge';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { formatPrice } from '../../utils/formatters';
+import BackButton from '../../components/common/BackButton';
 
 export default function WishlistPage() {
   const [items, setItems] = useState([]);
@@ -51,6 +52,7 @@ export default function WishlistPage() {
 
   return (
     <div>
+      <BackButton fallback="/account" label="Back to Account" className="mb-4" />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-primary mb-1">My Wishlist</h1>

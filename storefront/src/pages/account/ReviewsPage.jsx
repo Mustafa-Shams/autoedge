@@ -9,6 +9,7 @@ import { getMyReviews, updateReview, deleteReview } from '../../api/storeApi';
 import StarRating from '../../components/common/StarRating';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { formatDate } from '../../utils/formatters';
+import BackButton from '../../components/common/BackButton';
 
 export default function ReviewsPage() {
   const [reviews, setReviews] = useState([]);
@@ -100,6 +101,7 @@ export default function ReviewsPage() {
 
   return (
     <div>
+      <BackButton fallback="/account" label="Back to Account" className="mb-4" />
       <h1 className="text-2xl font-bold text-text-primary mb-2">My Reviews</h1>
       <p className="text-text-secondary mb-6">Reviews you've written for vehicles</p>
 

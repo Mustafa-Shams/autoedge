@@ -6,6 +6,7 @@ import EmptyState from '../../components/common/EmptyState';
 import StatusBadge from '../../components/common/StatusBadge';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { formatPrice, formatDate } from '../../utils/formatters';
+import BackButton from '../../components/common/BackButton';
 
 const STATUS_FILTERS = ['All', 'Booked', 'Confirmed', 'In Progress', 'Completed', 'Cancelled'];
 
@@ -59,6 +60,7 @@ export default function ServiceBookingsPage() {
 
   return (
     <div>
+      <BackButton fallback="/account" label="Back to Account" className="mb-4" />
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

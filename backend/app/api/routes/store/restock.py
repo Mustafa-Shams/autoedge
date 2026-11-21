@@ -55,7 +55,7 @@ def _to_response(r: RestockRequest) -> dict:
 # ── Routes ───────────────────────────────────────────────────────────
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def request_restock(
     body: RestockRequestBody,
     db: Session = Depends(get_db),
@@ -104,7 +104,7 @@ async def request_restock(
     return _to_response(request)
 
 
-@router.get("/")
+@router.get("")
 async def list_my_restock_requests(
     db: Session = Depends(get_db),
     account: CustomerAccount = Depends(get_current_customer),

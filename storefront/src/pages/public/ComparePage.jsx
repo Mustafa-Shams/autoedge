@@ -1,6 +1,7 @@
 /**
  * ComparePage — side-by-side 2-3 vehicles, all specs.
- * Spec 11.2, 11.4 — IDs from query string.
+ * Spec 11.2, 11.4 — IDs from query string, synced with localStorage compare.
+ * Remove/Clear buttons update URL + localStorage + counter in Navbar.
  */
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
@@ -9,7 +10,7 @@ import ImageWithFallback from '../../components/common/ImageWithFallback';
 import StarRating from '../../components/common/StarRating';
 import StockBadge from '../../components/cars/StockBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import EmptyState from '../../components/common/EmptyState';
+import BackButton from '../../components/common/BackButton';
 import useCompare from '../../hooks/useCompare';
 import { formatPrice, formatNumber } from '../../utils/formatters';
 
@@ -30,7 +31,7 @@ const SPEC_ROWS = [
 ];
 
 export default function ComparePage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { compareIds, clear, toggle } = useCompare();
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -39,6 +40,26 @@ export default function ComparePage() {
   // Get IDs from query string or from compare hook
   const idsParam = searchParams.get('ids');
   const ids = idsParam ? idsParam.split(',').map(Number).filter(Boolean) : compareIds;
+
+  // Handle removing a vehicle
+  const handleRemove = (vehicleId) => {
+    // Remove from localStorage
+    toggle(vehicleId);
+    // Update URL
+    const remaining = ids.filter((id) => id !== vehicleId);
+    if (remaining.length >= 2) {
+      setSearchParams({ ids: remaining.join(',') });
+    } else {
+      // Less than 2 — clear URL params
+      setSearchParams({});
+    }
+  };
+
+  // Handle clearing all
+  const handleClear = () => {
+    clear();
+    setSearchParams({});
+  };
 
   useEffect(() => {
     if (ids.length < 2) {
@@ -65,6 +86,8 @@ export default function ComparePage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <BackButton fallback="/cars" label="Back to Cars" className="mb-4" />
+
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-text-primary mb-1">Compare Cars</h1>
@@ -72,7 +95,7 @@ export default function ComparePage() {
         </div>
         {ids.length > 0 && (
           <button
-            onClick={clear}
+            onClick={handleClear}
             className="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors"
           >
             Clear selection
@@ -87,12 +110,21 @@ export default function ComparePage() {
       )}
 
       {ids.length < 2 ? (
-        <EmptyState
-          title="Select cars to compare"
-          description="Go to the inventory page and select 2-3 cars using the compare checkbox on each card."
-          action={() => window.location.href = '/cars'}
-          actionLabel="Browse Cars"
-        />
+        <div className="text-center py-16">
+          <svg className="w-16 h-16 text-text-muted mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+          </svg>
+          <h2 className="text-xl font-semibold text-text-primary mb-2">Pick at least 2 cars to compare</h2>
+          <p className="text-text-secondary mb-6">
+            Go to the inventory page and select 2–3 cars using the compare checkbox on each card.
+          </p>
+          <Link
+            to="/cars"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-accent-blue hover:bg-accent-blue-hover text-white font-semibold rounded-xl transition-colors"
+          >
+            Browse Cars
+          </Link>
+        </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
@@ -123,7 +155,7 @@ export default function ComparePage() {
                           <StockBadge stock={v.stock_quantity} />
                         </div>
                         <button
-                          onClick={() => toggle(v.vehicle_id)}
+                          onClick={() => handleRemove(v.vehicle_id)}
                           className="mt-2 text-xs text-status-cancelled hover:text-status-cancelled/80 transition-colors"
                         >
                           Remove

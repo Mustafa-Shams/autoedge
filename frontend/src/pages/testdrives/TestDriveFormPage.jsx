@@ -2,12 +2,12 @@ import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
-import { ArrowLeft } from "lucide-react";
 import { testDrivesApi } from "../../api/testDrivesApi";
 import { vehiclesApi } from "../../api/vehiclesApi";
 import { customersApi } from "../../api/customersApi";
 import axiosInstance from "../../api/axiosInstance";
 import PageWrapper from "../../components/layout/PageWrapper";
+import BackButton from "../../components/common/BackButton";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 const STATUS_OPTIONS = ["Scheduled", "Completed", "Cancelled", "No-Show"];
@@ -88,12 +88,7 @@ export default function TestDriveFormPage() {
     <PageWrapper>
       <div className="max-w-2xl space-y-5">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate("/test-drives")}
-            className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back
-          </button>
+          <BackButton fallback="/test-drives" label="Back" />
           <h2 className="text-2xl font-bold text-text-primary">
             {isEdit ? "Update Test Drive" : "Book Test Drive"}
           </h2>

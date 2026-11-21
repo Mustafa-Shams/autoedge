@@ -9,6 +9,7 @@ import { getEnquiry, replyToEnquiry, closeEnquiry } from '../../api/storeApi';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import BackButton from '../../components/common/BackButton';
 import { formatDateTime, formatRelativeTime } from '../../utils/formatters';
 
 const STATUS_COLORS = {
@@ -109,6 +110,8 @@ export default function EnquiryDetailPage() {
 
   return (
     <div className="max-w-3xl">
+      <BackButton fallback="/account/enquiries" label="Back to Enquiries" className="mb-4" />
+
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-xs text-text-muted mb-4">
         <Link to="/account/enquiries" className="hover:text-text-secondary">

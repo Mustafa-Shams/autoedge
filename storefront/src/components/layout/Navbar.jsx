@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
-import { getUnreadCount } from '../../api/storeApi';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { getWishlist } from '../../api/storeApi';
 
 /**
@@ -38,42 +38,32 @@ const ACCOUNT_LINKS = [
 
 export default function Navbar() {
   const { customer, loggedIn, logout } = useAuth();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
   const dropdownRef = useRef(null);
   const mobileMenuRef = useRef(null);
 
-  // Fetch unread notifications count when logged in
+  // Fetch wishlist count when logged in
   useEffect(() => {
     if (!loggedIn) {
-      setUnreadCount(0);
       setWishlistCount(0);
       return;
     }
 
-    const fetchCounts = async () => {
+    const fetchWishlist = async () => {
       try {
-        const [unreadRes, wishlistRes] = await Promise.allSettled([
-          getUnreadCount(),
-          getWishlist(),
-        ]);
-        if (unreadRes.status === 'fulfilled') {
-          setUnreadCount(unreadRes.value.data.count ?? 0);
-        }
-        if (wishlistRes.status === 'fulfilled') {
-          setWishlistCount(Array.isArray(wishlistRes.value.data) ? wishlistRes.value.data.length : 0);
-        }
+        const res = await getWishlist();
+        setWishlistCount(Array.isArray(res.data) ? res.data.length : 0);
       } catch {
-        // Silently fail — badge just won't show
+        // Silently fail
       }
     };
 
-    fetchCounts();
-    // Re-fetch every 30 seconds
-    const interval = setInterval(fetchCounts, 30000);
+    fetchWishlist();
+    const interval = setInterval(fetchWishlist, 30000);
     return () => clearInterval(interval);
   }, [loggedIn]);
 

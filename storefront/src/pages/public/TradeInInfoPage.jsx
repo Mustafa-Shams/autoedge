@@ -3,6 +3,7 @@
  * Spec 11.2, 7.7.
  */
 import { Link } from 'react-router-dom';
+import BackButton from '../../components/common/BackButton';
 
 const STEPS = [
   {
@@ -30,6 +31,7 @@ const STEPS = [
 export default function TradeInInfoPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <BackButton fallback="/" label="Back" className="mb-4" />
       {/* Header */}
       <div className="text-center mb-12">
         <h1 className="text-3xl sm:text-4xl font-bold text-text-primary mb-3">Trade-In Your Car</h1>

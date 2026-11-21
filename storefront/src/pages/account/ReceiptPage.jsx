@@ -9,6 +9,7 @@ import * as storeApi from '../../api/storeApi';
 import Receipt from '../../components/payment/Receipt';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
+import BackButton from '../../components/common/BackButton';
 
 export default function ReceiptPage() {
   const { id } = useParams();
@@ -65,6 +66,8 @@ export default function ReceiptPage() {
 
   return (
     <div>
+      <BackButton fallback="/account/reservations" label="Back" className="mb-4" />
+
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-text-muted mb-6">
         <Link to="/account" className="hover:text-text-secondary">Account</Link>

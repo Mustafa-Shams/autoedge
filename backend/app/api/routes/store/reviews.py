@@ -120,7 +120,7 @@ def _to_response(r: Review) -> dict:
 # ── Routes ───────────────────────────────────────────────────────────
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_review(
     body: ReviewCreate,
     db: Session = Depends(get_db),
@@ -167,7 +167,7 @@ async def create_review(
     return _to_response(review)
 
 
-@router.get("/")
+@router.get("")
 async def list_my_reviews(
     db: Session = Depends(get_db),
     account: CustomerAccount = Depends(get_current_customer),

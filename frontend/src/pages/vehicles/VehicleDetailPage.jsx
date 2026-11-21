@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { vehiclesApi } from "../../api/vehiclesApi";
 import PageWrapper from "../../components/layout/PageWrapper";
@@ -8,6 +8,7 @@ import StatusBadge from "../../components/common/StatusBadge";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useAuth } from "../../hooks/useAuth";
+import BackButton from "../../components/common/BackButton";
 import { formatCurrency, formatDate } from "../../utils/formatters";
 
 export default function VehicleDetailPage() {
@@ -56,12 +57,7 @@ export default function VehicleDetailPage() {
       <div className="space-y-5 max-w-3xl">
         {/* Back + Actions */}
         <div className="flex items-center justify-between">
-          <button
-            onClick={() => navigate("/vehicles")}
-            className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to Vehicles
-          </button>
+          <BackButton fallback="/vehicles" label="Back to Vehicles" />
           <div className="flex gap-2">
             {canEdit && (
               <button

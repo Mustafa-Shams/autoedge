@@ -2,12 +2,13 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useWatch } from "react-hook-form";
-import { ArrowLeft, Bookmark, ArrowRightLeft, Info } from "lucide-react";
+import { Bookmark, ArrowRightLeft, Info } from "lucide-react";
 import { salesApi } from "../../api/salesApi";
 import { vehiclesApi } from "../../api/vehiclesApi";
 import { customersApi } from "../../api/customersApi";
 import PageWrapper from "../../components/layout/PageWrapper";
 import { useAuth } from "../../hooks/useAuth";
+import BackButton from "../../components/common/BackButton";
 import { formatCurrency } from "../../utils/formatters";
 
 const PAYMENT_TYPES = ["Cash", "Finance", "Lease"];
@@ -95,9 +96,7 @@ export default function SaleFormPage() {
     <PageWrapper>
       <div className="max-w-3xl space-y-5">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/sales")} className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary">
-            <ArrowLeft className="w-4 h-4" /> Back
-          </button>
+          <BackButton fallback="/sales" label="Back" />
           <h2 className="text-2xl font-bold text-text-primary">Record Sale</h2>
         </div>
 

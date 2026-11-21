@@ -16,6 +16,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PasswordField from '../../components/forms/PasswordField';
 import BankCard from '../../components/payment/BankCard';
 import ProcessingSteps from '../../components/payment/ProcessingSteps';
+import BackButton from '../../components/common/BackButton';
 import { formatPrice, formatDate } from '../../utils/formatters';
 
 function generateIdempotencyKey() {
@@ -210,6 +211,8 @@ export default function NewServiceBookingPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      <BackButton fallback="/account/service-bookings" label="Back to Service Bookings" className="mb-4" />
+
       <h1 className="text-2xl font-bold text-text-primary mb-1">Book a Service</h1>
       <p className="text-sm text-text-secondary mb-6">
         Follow the steps below to schedule a service appointment.

@@ -3,6 +3,9 @@
 Spec 10.4: PUT /vehicles/{id} now accepts stock_quantity, description,
 main_image_url, engine, horsepower, seats, drivetrain, is_published.
 Manual stock edits write a stock_movements row (handled in crud_vehicle).
+
+Decision #23: Added PUT /vehicles/{id}/images/bulk for atomic image replacement.
+GET /vehicles/{id} now returns images[] in the response.
 """
 from decimal import Decimal
 from typing import List, Optional
@@ -15,7 +18,11 @@ from app.crud.crud_vehicle import (
     create_vehicle, update_vehicle, delete_vehicle,
     count_vehicles,
 )
-from app.schemas.vehicle import VehicleCreate, VehicleUpdate, VehicleResponse
+from app.schemas.vehicle import (
+    VehicleCreate, VehicleUpdate, VehicleResponse,
+    BulkImageRequest, VehicleImageResponse,
+)
+from app.models.vehicle import Vehicle
 from app.models.vehicle_image import VehicleImage
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
@@ -98,7 +105,45 @@ async def delete_vehicle_by_id(
     return v
 
 
-# ── Vehicle image management (spec 10.4) ─────────────────────────────
+# ── Vehicle image management (spec 10.4, Decision #23) ───────────────
+
+@router.put("/{vehicle_id}/images/bulk", response_model=VehicleResponse)
+async def bulk_replace_images(
+    vehicle_id: int,
+    body: BulkImageRequest,
+    db: Session = Depends(get_db),
+    _=Depends(MANAGER_SALES),
+):
+    """Atomically replace all images for a vehicle.
+
+    Sets main_image_url on the vehicle, deletes all existing VehicleImage
+    rows, and inserts new ones with correct sort_order. Transactional —
+    failure cannot leave the vehicle half-saved.
+    """
+    v = db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle_id).first()
+    if not v:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+
+    # Update main_image_url on the vehicle row
+    v.main_image_url = body.main_image_url
+
+    # Delete all existing additional images
+    db.query(VehicleImage).filter(VehicleImage.vehicle_id == vehicle_id).delete()
+
+    # Insert new images with explicit sort_order
+    for i, img in enumerate(body.images):
+        db.add(VehicleImage(
+            vehicle_id=vehicle_id,
+            image_url=img.image_url,
+            sort_order=img.sort_order if img.sort_order else i + 1,
+            credit=img.credit,
+            source_url=img.source_url,
+        ))
+
+    db.commit()
+    db.refresh(v)
+    return v
+
 
 @router.post("/{vehicle_id}/images", status_code=status.HTTP_201_CREATED)
 async def add_vehicle_image(

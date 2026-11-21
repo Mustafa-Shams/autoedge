@@ -11,6 +11,7 @@ import EmptyState from '../../components/common/EmptyState';
 import StatusBadge from '../../components/common/StatusBadge';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { formatDate, formatRelativeTime } from '../../utils/formatters';
+import BackButton from '../../components/common/BackButton';
 
 const STATUS_FILTERS = [
   { value: '', label: 'All Test Drives' },
@@ -86,6 +87,7 @@ export default function TestDrivesPage() {
 
   return (
     <div>
+      <BackButton fallback="/account" label="Back to Account" className="mb-4" />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">My Test Drives</h1>

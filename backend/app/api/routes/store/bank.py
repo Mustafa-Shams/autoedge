@@ -154,3 +154,21 @@ async def top_up_balance(
             else status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
+
+
+@router.get("/sensitive")
+async def get_bank_sensitive(
+    account: CustomerAccount = Depends(get_current_customer),
+    db: Session = Depends(get_db),
+):
+    """Get sensitive bank details (full account number, demo CVV) — owner only."""
+    bank_acct = db.query(BankAccount).filter(
+        BankAccount.customer_id == account.customer_id
+    ).first()
+    if not bank_acct:
+        raise HTTPException(status_code=404, detail="No bank account found")
+    return {
+        "account_number": bank_acct.account_number,
+        "card_last4": bank_acct.card_last4,
+        "demo_cvv": "123",
+    }

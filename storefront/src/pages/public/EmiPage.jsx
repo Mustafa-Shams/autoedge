@@ -1,21 +1,31 @@
 /**
  * EmiPage — full EMI calculator per spec 11.4.
- * Inputs: price, down payment %, annual interest %, term months (12/24/36/48/60/72).
- * Shows monthly EMI, total interest, total payable.
- * Button "Ask about finance" creates a prefilled enquiry (login required).
+ * Vehicle dropdown (searchable select) from GET /api/v1/public/vehicles.
+ * Selecting a car fills the price. "Enter a custom price" keeps manual input.
+ * ?vehicle=ID preselects that car. Sliders and breakdown kept.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { getVehicles } from '../../api/publicApi';
 import { calculateEmi, EMI_DEFAULTS, TERM_OPTIONS } from '../../utils/emi';
 import { formatPrice } from '../../utils/formatters';
 import useAuth from '../../hooks/useAuth';
+import BackButton from '../../components/common/BackButton';
 
 export default function EmiPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { loggedIn } = useAuth();
 
+  // Vehicle dropdown state
+  const [vehicles, setVehicles] = useState([]);
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [customMode, setCustomMode] = useState(false);
+  const [vehicleSearch, setVehicleSearch] = useState('');
+  const [loadingVehicles, setLoadingVehicles] = useState(true);
+
   const defaultPrice = parseFloat(searchParams.get('price')) || 35000;
+  const preselectedVehicleId = searchParams.get('vehicle') || '';
 
   const [inputs, setInputs] = useState({
     price: defaultPrice,
@@ -24,16 +34,71 @@ export default function EmiPage() {
     termMonths: EMI_DEFAULTS.termMonths,
   });
 
+  // Fetch vehicles on mount
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      try {
+        setLoadingVehicles(true);
+        const res = await getVehicles({ page_size: 100 });
+        const items = res.data.items || res.data || [];
+        setVehicles(items);
+
+        // If ?vehicle=ID is in URL, preselect that car
+        if (preselectedVehicleId) {
+          const found = items.find((v) => String(v.vehicle_id) === String(preselectedVehicleId));
+          if (found) {
+            setSelectedVehicleId(String(found.vehicle_id));
+            setInputs((prev) => ({ ...prev, price: parseFloat(found.price) }));
+          }
+        } else if (searchParams.get('price')) {
+          // If ?price= is set, start in custom mode
+          setCustomMode(true);
+        }
+      } catch {
+        // If vehicle fetch fails, fallback to custom mode
+        setCustomMode(true);
+      } finally {
+        setLoadingVehicles(false);
+      }
+    };
+    fetchVehicles();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleVehicleSelect = (e) => {
+    const val = e.target.value;
+    if (val === '__custom__') {
+      setCustomMode(true);
+      setSelectedVehicleId('');
+      return;
+    }
+    setCustomMode(false);
+    setSelectedVehicleId(val);
+    const found = vehicles.find((v) => String(v.vehicle_id) === val);
+    if (found) {
+      setInputs((prev) => ({ ...prev, price: parseFloat(found.price) }));
+    }
+  };
+
   const result = calculateEmi(inputs);
 
   const handleChange = (key, value) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
   };
 
+  // Filter vehicles by search text
+  const filteredVehicles = vehicleSearch
+    ? vehicles.filter((v) => {
+        const label = `${v.year} ${v.make} ${v.model}`.toLowerCase();
+        return label.includes(vehicleSearch.toLowerCase());
+      })
+    : vehicles;
+
   const inputClasses = 'w-full px-4 py-3 bg-bg-elevated border border-bg-border rounded-xl text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent';
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <BackButton fallback="/cars" label="Back to Cars" className="mb-4" />
+
       <div className="text-center mb-10">
         <h1 className="text-3xl font-bold text-text-primary mb-2">EMI Calculator</h1>
         <p className="text-text-secondary">Calculate your monthly car loan payments</p>
@@ -44,19 +109,68 @@ export default function EmiPage() {
         <div className="bg-bg-card border border-bg-border rounded-xl p-6 space-y-5">
           <h2 className="text-lg font-semibold text-text-primary">Loan Details</h2>
 
+          {/* Vehicle dropdown */}
           <div>
-            <label htmlFor="emi-price" className="block text-sm text-text-secondary mb-1.5">Vehicle Price (\$)</label>
-            <input
-              id="emi-price"
-              type="number"
-              min="1000"
-              step="100"
-              value={inputs.price}
-              onChange={(e) => handleChange('price', parseFloat(e.target.value) || 0)}
-              className={inputClasses}
-              aria-label="Vehicle price in dollars"
-            />
+            <label htmlFor="emi-vehicle" className="block text-sm text-text-secondary mb-1.5">Select Vehicle</label>
+            {loadingVehicles ? (
+              <div className="flex items-center gap-2 py-3">
+                <div className="w-4 h-4 border-2 border-bg-border border-t-accent-blue rounded-full animate-spin" />
+                <span className="text-sm text-text-muted">Loading vehicles…</span>
+              </div>
+            ) : (
+              <>
+                {/* Search input for filtering */}
+                {vehicles.length > 5 && !customMode && (
+                  <input
+                    type="text"
+                    placeholder="Search vehicles…"
+                    value={vehicleSearch}
+                    onChange={(e) => setVehicleSearch(e.target.value)}
+                    className="w-full px-3 py-2 mb-2 bg-bg-elevated border border-bg-border rounded-lg text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-blue"
+                  />
+                )}
+                <select
+                  id="emi-vehicle"
+                  value={customMode ? '__custom__' : selectedVehicleId}
+                  onChange={handleVehicleSelect}
+                  className={inputClasses}
+                >
+                  <option value="" disabled>Choose a vehicle…</option>
+                  {filteredVehicles.map((v) => (
+                    <option key={v.vehicle_id} value={String(v.vehicle_id)}>
+                      {v.year} {v.make} {v.model} — {formatPrice(v.price)}
+                    </option>
+                  ))}
+                  <option value="__custom__">Enter a custom price</option>
+                </select>
+              </>
+            )}
           </div>
+
+          {/* Custom price input — only in custom mode */}
+          {customMode && (
+            <div>
+              <label htmlFor="emi-price" className="block text-sm text-text-secondary mb-1.5">Vehicle Price ($)</label>
+              <input
+                id="emi-price"
+                type="number"
+                min="1000"
+                step="100"
+                value={inputs.price}
+                onChange={(e) => handleChange('price', parseFloat(e.target.value) || 0)}
+                className={inputClasses}
+                aria-label="Vehicle price in dollars"
+              />
+            </div>
+          )}
+
+          {/* Selected vehicle price display — only in vehicle mode */}
+          {!customMode && selectedVehicleId && (
+            <div className="flex justify-between items-center px-1">
+              <span className="text-sm text-text-secondary">Vehicle Price</span>
+              <span className="text-sm font-semibold text-accent-blue">{formatPrice(inputs.price)}</span>
+            </div>
+          )}
 
           <div>
             <label htmlFor="emi-down-payment" className="block text-sm text-text-secondary mb-1.5">

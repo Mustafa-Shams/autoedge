@@ -1,6 +1,6 @@
 # HANDOFF — AutoEdge Storefront
-Last updated: 2026-11-21 12:30 PKT by Antigravity session
-Current phase: P48 — status: COMPLETE
+Last updated: 2026-11-21 18:45 PKT by Antigravity session
+Current phase: Post-P48 hotfix — status: COMPLETE
 
 ## Done
 - P30: DB schema — 19 new tables, Alembic migration, storefront_schema.sql — key files: `backend/alembic/versions/`, `backend/database/storefront_schema.sql`
@@ -23,6 +23,7 @@ Current phase: P48 — status: COMPLETE
 - P47: Hardening — 99 tests (cross-token, ownership, expiry), accessibility pass, 375px layout — key files: `backend/tests/test_cross_token.py`, `backend/tests/test_ownership.py`, `backend/tests/test_expiry.py`
 - P48: README, HANDOFF, DECISIONS — COMPLETE
 - Post-P48: Showroom expanded from 16 → 22 vehicles (Decision #19). 6 new cars added: Toyota Fortuner, Ferrari 488 GTB, Mercedes-Benz C-Class C200, BMW M4 Competition, Porsche 918 Spyder, Suzuki Swift. Photos for new cars are manual (teammates will add later). fetch_vehicle_images.py has MANUAL_PHOTO_CARS skip list.
+- Post-P48 hotfix (Decision #22): Trailing-slash 307 fix on 5 POST routes (reviews, enquiries, test_drives, trade_ins, restock). BankCard 3D flip with `/store/bank/sensitive` endpoint. NotificationContext for unified unread count. Compare page Remove/Clear working. EMI vehicle dropdown. CarDetail sticky fix + wishlist toggle. BackButton components in both apps. 12 new tests (111 total).
 
 ## Half-done / in progress
 - None — all phases complete
@@ -42,9 +43,9 @@ Current phase: P48 — status: COMPLETE
 - Cloudinary: create unsigned upload preset `autoedge_tradein` (if trade-in photos needed for demo)
 
 ## Re-check first (the new session runs these before any new work)
-- [ ] `pytest tests\ -v --tb=short` → 99 passed
-- [ ] `cd storefront && npm run build` → 0 errors
-- [ ] `cd frontend && npm run build` → 0 errors
+- [x] `pytest tests/ -v --tb=short` → 111 passed (99 original + 12 new post-P48)
+- [x] `cd storefront && npm run build` → 0 errors
+- [x] `cd frontend && npm run build` → 0 errors
 - [ ] README.md has ER diagram, demo logins, DB features list
 - [ ] docs/DECISIONS.md and docs/HANDOFF.md exist
 
@@ -52,8 +53,9 @@ Current phase: P48 — status: COMPLETE
 - Staff frontend chunk size warning (936KB) — pre-existing from P01-P29, not critical for demo
 - Pexels API keys paused — script now supports Wikimedia Commons + Unsplash fallbacks. 6 new cars skip image fetch (MANUAL_PHOTO_CARS). Fallback gradient + car icon shown when no images.
 - Email sending requires Brevo/SendGrid setup — `EMAIL_PROVIDER=none` logs only (default)
+- Staff frontend `BackButton.jsx` exists in `frontend/src/components/common/` but is not wired into pages (staff pages already have inline back navigation with ArrowLeft icons)
 
 ## Setup facts (names only, never secret values)
 - Env variables already set locally: `DATABASE_URL`, `SECRET_KEY`, `CORS_ORIGINS`, `SHOWROOM_TIMEZONE`, `DEMO_STARTING_BALANCE`, `EMAIL_PROVIDER`, `STORE_BASE_URL`
-- Still missing on Railway for storefront: `STORE_BASE_URL` (the storefront Vercel URL), storefront URL in `CORS_ORIGINS`
+- Railway env vars needed: `DATABASE_URL`, `SECRET_KEY`, `CORS_ORIGINS` (must include `https://autoedge-three.vercel.app,https://autoedge-storefront.vercel.app`), `STORE_BASE_URL` (the storefront Vercel URL), `SHOWROOM_TIMEZONE` (defaults to `Asia/Karachi`), `EMAIL_PROVIDER` (defaults to `none`), `DEMO_STARTING_BALANCE` (defaults to `50000.00`)
 - Where things live: spec `AUTOEDGE_STOREFRONT_SPEC.md`, answers `docs/DECISIONS.md`, seed `backend/database/storefront_seed.py`

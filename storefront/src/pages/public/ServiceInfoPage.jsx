@@ -8,6 +8,7 @@ import { getServiceTypes, getTechnicians } from '../../api/publicApi';
 import ImageWithFallback from '../../components/common/ImageWithFallback';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { formatPrice } from '../../utils/formatters';
+import BackButton from '../../components/common/BackButton';
 
 export default function ServiceInfoPage() {
   const [services, setServices] = useState([]);
@@ -34,6 +35,7 @@ export default function ServiceInfoPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <BackButton fallback="/" label="Back" className="mb-4" />
       {/* Header */}
       <div className="text-center mb-12">
         <h1 className="text-3xl sm:text-4xl font-bold text-text-primary mb-3">Car Service</h1>

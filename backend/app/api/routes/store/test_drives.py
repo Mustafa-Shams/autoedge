@@ -126,7 +126,7 @@ def _enrich_response(td) -> dict:
 # ── Routes ───────────────────────────────────────────────────────────
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_test_drive(
     body: TestDriveRequest,
     db: Session = Depends(get_db),
@@ -152,7 +152,7 @@ async def create_test_drive(
     return _enrich_response(td)
 
 
-@router.get("/")
+@router.get("")
 async def list_test_drives(
     status_filter: Optional[str] = None,
     db: Session = Depends(get_db),

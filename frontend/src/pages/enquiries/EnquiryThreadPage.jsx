@@ -8,6 +8,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getEnquiry, replyToEnquiry, updateEnquiry } from '../../api/enquiriesApi';
 import { useAuth } from '../../hooks/useAuth';
 import PageWrapper from '../../components/layout/PageWrapper';
+import BackButton from '../../components/common/BackButton';
 
 const STATUS_BADGE = {
   Open: 'bg-blue-500/20 text-blue-400',
@@ -105,12 +106,7 @@ export default function EnquiryThreadPage() {
       <PageWrapper title="Enquiry Thread">
         <div className="bg-bg-card border border-bg-border rounded-xl p-12 text-center">
           <p className="text-text-muted text-sm mb-4">{error || 'Enquiry not found.'}</p>
-          <button
-            onClick={() => navigate('/enquiries')}
-            className="text-accent-blue text-sm font-medium hover:text-accent-blue-hover"
-          >
-            ← Back to enquiries
-          </button>
+          <BackButton fallback="/enquiries" label="Back to enquiries" />
         </div>
       </PageWrapper>
     );
@@ -120,9 +116,7 @@ export default function EnquiryThreadPage() {
     <PageWrapper
       title={
         <div className="flex items-center gap-3 flex-wrap">
-          <Link to="/enquiries" className="text-text-muted hover:text-text-secondary text-sm">
-            ← Back
-          </Link>
+          <BackButton fallback="/enquiries" label="Back" />
           <span className="text-text-muted">/</span>
           <span className="truncate max-w-[300px]">{enquiry.subject}</span>
           <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full ${STATUS_BADGE[enquiry.status] || ''}`}>
