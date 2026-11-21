@@ -1,11 +1,11 @@
 # HANDOFF — AutoEdge Storefront
-Last updated: 2026-11-20 02:09 PKT by Antigravity session
-Current phase: P48 — status: in progress
+Last updated: 2026-11-21 12:30 PKT by Antigravity session
+Current phase: P48 — status: COMPLETE
 
 ## Done
 - P30: DB schema — 19 new tables, Alembic migration, storefront_schema.sql — key files: `backend/alembic/versions/`, `backend/database/storefront_schema.sql`
 - P31: Storefront React scaffold — Vite + Tailwind v4, dark theme, routing, auth context — key files: `storefront/`
-- P32: Storefront seed data — 8 new vehicles, service types, technicians, 3 demo customers — key files: `backend/database/storefront_seed.py`
+- P32: Storefront seed data — 8 new vehicles (expanded to 22 total via team decision), service types, technicians, 3 demo customers — key files: `backend/database/storefront_seed.py`
 - P33: Customer auth — signup, login, profile, check-email, JWT with scope:"customer" — key files: `backend/app/api/routes/store/auth.py`, `backend/app/api/routes/store/account.py`
 - P34: Public catalog — `/api/v1/public/catalog` with filters, search, sort, pagination, `v_vehicle_catalog` view — key files: `backend/app/api/routes/public/catalog.py`
 - P35: Storefront pages — Home, Cars, CarDetail, Compare, EMI, Service/Trade-in info, About, Contact — key files: `storefront/src/pages/public/`
@@ -21,11 +21,11 @@ Current phase: P48 — status: in progress
 - P45: Notifications + email — in-app notifications, email_outbox, Brevo/SendGrid/none — key files: `backend/app/services/email_service.py`
 - P46: Staff dashboard integration — Reservations + Staff nav items, ReservationsStaffPage — key files: `frontend/src/pages/reservations/ReservationsStaffPage.jsx`
 - P47: Hardening — 99 tests (cross-token, ownership, expiry), accessibility pass, 375px layout — key files: `backend/tests/test_cross_token.py`, `backend/tests/test_ownership.py`, `backend/tests/test_expiry.py`
-- P48: README, HANDOFF, DECISIONS — in progress
+- P48: README, HANDOFF, DECISIONS — COMPLETE
+- Post-P48: Showroom expanded from 16 → 22 vehicles (Decision #19). 6 new cars added: Toyota Fortuner, Ferrari 488 GTB, Mercedes-Benz C-Class C200, BMW M4 Competition, Porsche 918 Spyder, Suzuki Swift. Photos for new cars are manual (teammates will add later). fetch_vehicle_images.py has MANUAL_PHOTO_CARS skip list.
 
 ## Half-done / in progress
-- P48: README.md updated ✅, docs/DECISIONS.md created ✅, docs/HANDOFF.md created ✅
-- Remaining: verify storefront_seed.py runs, clean up temp files, final checklist
+- None — all phases complete
 
 ## Next step (do this first after the re-check)
 - Create the second Vercel project for storefront (manual — user must do this)
@@ -34,7 +34,7 @@ Current phase: P48 — status: in progress
 - Run the FINAL CHECKLIST from spec section 18
 
 ## Not done yet (in order)
-- Nothing — P48 is the final phase
+- Nothing — all phases complete, showroom expanded to 22 vehicles
 
 ## Waiting on the owner
 - Vercel: create second project (Root Directory `storefront`, Framework Vite, env vars)
@@ -50,7 +50,7 @@ Current phase: P48 — status: in progress
 
 ## Known problems and workarounds
 - Staff frontend chunk size warning (936KB) — pre-existing from P01-P29, not critical for demo
-- Pexels images require API key — fallback gradient + car icon shown when no images
+- Pexels API keys paused — script now supports Wikimedia Commons + Unsplash fallbacks. 6 new cars skip image fetch (MANUAL_PHOTO_CARS). Fallback gradient + car icon shown when no images.
 - Email sending requires Brevo/SendGrid setup — `EMAIL_PROVIDER=none` logs only (default)
 
 ## Setup facts (names only, never secret values)

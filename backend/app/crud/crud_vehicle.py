@@ -16,17 +16,16 @@ def get_vehicle(db: Session, vehicle_id: int) -> Optional[Vehicle]:
     return db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle_id).first()
 
 
-def get_vehicles(
+def _build_vehicle_query(
     db: Session,
-    skip: int = 0,
-    limit: int = 20,
     status: Optional[str] = None,
     make: Optional[str] = None,
     year: Optional[int] = None,
     price_min: Optional[Decimal] = None,
     price_max: Optional[Decimal] = None,
     condition_type: Optional[str] = None,
-) -> List[Vehicle]:
+):
+    """Build a filtered query on Vehicle (shared by list + count)."""
     q = db.query(Vehicle)
     if status:
         q = q.filter(Vehicle.status == status)
@@ -40,7 +39,41 @@ def get_vehicles(
         q = q.filter(Vehicle.price <= price_max)
     if condition_type:
         q = q.filter(Vehicle.condition_type == condition_type)
+    return q
+
+
+def get_vehicles(
+    db: Session,
+    skip: int = 0,
+    limit: int = 20,
+    status: Optional[str] = None,
+    make: Optional[str] = None,
+    year: Optional[int] = None,
+    price_min: Optional[Decimal] = None,
+    price_max: Optional[Decimal] = None,
+    condition_type: Optional[str] = None,
+) -> List[Vehicle]:
+    q = _build_vehicle_query(db, status=status, make=make, year=year,
+                             price_min=price_min, price_max=price_max,
+                             condition_type=condition_type)
     return q.offset(skip).limit(limit).all()
+
+
+def count_vehicles(
+    db: Session,
+    status: Optional[str] = None,
+    make: Optional[str] = None,
+    year: Optional[int] = None,
+    price_min: Optional[Decimal] = None,
+    price_max: Optional[Decimal] = None,
+    condition_type: Optional[str] = None,
+) -> int:
+    """Return the total number of vehicles matching the given filters."""
+    from sqlalchemy import func as sqf
+    q = _build_vehicle_query(db, status=status, make=make, year=year,
+                             price_min=price_min, price_max=price_max,
+                             condition_type=condition_type)
+    return q.with_entities(sqf.count(Vehicle.vehicle_id)).scalar() or 0
 
 
 def get_available_vehicles(db: Session) -> List[Vehicle]:

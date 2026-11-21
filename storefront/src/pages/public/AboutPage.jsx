@@ -15,7 +15,7 @@ export default function AboutPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 my-8">
           {[
-            { num: '16+', label: 'Premium Vehicles' },
+            { num: '22+', label: 'Premium Vehicles' },
             { num: '8', label: 'Service Types' },
             { num: '5', label: 'Expert Technicians' },
           ].map((stat) => (

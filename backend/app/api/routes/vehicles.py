@@ -13,6 +13,7 @@ from app.api.deps import get_db, require_role
 from app.crud.crud_vehicle import (
     get_vehicle, get_vehicles, get_available_vehicles,
     create_vehicle, update_vehicle, delete_vehicle,
+    count_vehicles,
 )
 from app.schemas.vehicle import VehicleCreate, VehicleUpdate, VehicleResponse
 from app.models.vehicle_image import VehicleImage
@@ -29,10 +30,10 @@ async def list_available_vehicles(db: Session = Depends(get_db), _=Depends(ALL_R
     return get_available_vehicles(db)
 
 
-@router.get("/", response_model=List[VehicleResponse])
+@router.get("/")
 async def list_vehicles(
     skip: int = 0,
-    limit: int = 20,
+    limit: int = 50,
     status: Optional[str] = None,
     make: Optional[str] = None,
     year: Optional[int] = None,
@@ -42,9 +43,17 @@ async def list_vehicles(
     db: Session = Depends(get_db),
     _=Depends(ALL_ROLES),
 ):
-    return get_vehicles(db, skip=skip, limit=limit, status=status, make=make,
-                        year=year, price_min=price_min, price_max=price_max,
-                        condition_type=condition_type)
+    filter_kw = dict(status=status, make=make, year=year,
+                     price_min=price_min, price_max=price_max,
+                     condition_type=condition_type)
+    items = get_vehicles(db, skip=skip, limit=limit, **filter_kw)
+    total = count_vehicles(db, **filter_kw)
+    return {
+        "items": [VehicleResponse.model_validate(v) for v in items],
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+    }
 
 
 @router.get("/{vehicle_id}", response_model=VehicleResponse)

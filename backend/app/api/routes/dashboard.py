@@ -68,8 +68,12 @@ async def dashboard_stats(
         .scalar() or 0
     )
 
+    # Units in stock — sum of stock_quantity across all vehicle listings
+    units_in_stock = db.query(func.coalesce(func.sum(Vehicle.stock_quantity), 0)).scalar()
+
     return {
         "total_vehicles": total_vehicles,
+        "units_in_stock": units_in_stock,
         "available_vehicles": available_vehicles,
         "sold_this_month": sold_this_month,
         "total_revenue_this_month": str(total_revenue_this_month),

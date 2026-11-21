@@ -1,19 +1,22 @@
 """Automatic car photo fetcher — spec section 12.1.
 
-Sources:
-1. Pexels API (if PEXELS_API_KEY is set) — best quality, landscape orientation
-2. Wikimedia Commons (fallback, no key needed) — CC0/PD/CC-BY/CC-BY-SA only
+Sources (tried in order, stopping when a car has ≥ 2 photos):
+1. Pexels API     — if PEXELS_API_KEY is set      (best quality, landscape)
+2. Unsplash API   — if UNSPLASH_ACCESS_KEY is set  (landscape, min 1200 px)
+3. Wikimedia Commons — always available, no key    (CC0/PD/CC-BY/CC-BY-SA)
 
 Usage:
     cd backend
-    python database/fetch_vehicle_images.py           # fetch from available sources
-    python database/fetch_vehicle_images.py --pexels-only   # Pexels only
-    python database/fetch_vehicle_images.py --wiki-only     # Wikimedia only
+    python database/fetch_vehicle_images.py               # all available sources
+    python database/fetch_vehicle_images.py --wiki-only    # Wikimedia only
+    python database/fetch_vehicle_images.py --pexels-only  # Pexels only (needs key)
 
-Article XX: Lawful Images Only — Pexels API and Wikimedia Commons only, with credit.
+Article XX: Lawful Images Only — Pexels API, Unsplash API, and Wikimedia Commons
+only, with credit. Never scrape Google/Bing or other sites.
 """
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -32,6 +35,18 @@ OUTPUT_JSON = SCRIPT_DIR / "vehicle_images.json"
 OUTPUT_HTML = SCRIPT_DIR / "vehicle_images_preview.html"
 RATE_LIMIT_DELAY = 0.5  # seconds between API calls
 USER_AGENT = "AutoEdgeDemo/1.0 (student database project)"
+MIN_PHOTOS_TARGET = 2   # try additional sources if below this
+
+# Cars whose photos will be added manually by the owner's team.
+# The script skips these entirely — no API calls, no entries in vehicle_images.json.
+MANUAL_PHOTO_CARS = {
+    ("Toyota", "Fortuner", 2023),
+    ("Ferrari", "488 GTB", 2018),
+    ("Mercedes-Benz", "C-Class C200", 2020),
+    ("BMW", "M4 Competition", 2021),
+    ("Porsche", "918 Spyder", 2015),
+    ("Suzuki", "Swift", 2022),
+}
 
 
 def _get_vehicles_from_db() -> list[dict]:
@@ -49,6 +64,19 @@ def _get_vehicles_from_db() -> list[dict]:
         ))
         vehicles = [dict(row._mapping) for row in result]
     return vehicles
+
+
+def _load_keys() -> tuple[str, str]:
+    """Load API keys from environment / .env file. Returns (pexels_key, unsplash_key)."""
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(SCRIPT_DIR.parent / ".env")
+    except Exception:
+        pass
+
+    pexels_key = os.environ.get("PEXELS_API_KEY", "").strip()
+    unsplash_key = os.environ.get("UNSPLASH_ACCESS_KEY", "").strip()
+    return pexels_key, unsplash_key
 
 
 # ── Pexels API ───────────────────────────────────────────────────────
@@ -92,7 +120,6 @@ def fetch_pexels(make: str, model: str, api_key: str) -> list[dict]:
     try:
         resp = httpx.get(url, headers=headers, params=params, timeout=15)
         if resp.status_code == 429:
-            # Rate limited — wait and retry once
             wait = int(resp.headers.get("Retry-After", 10))
             print(f"  Pexels rate limited, waiting {wait}s...")
             time.sleep(wait)
@@ -108,7 +135,6 @@ def fetch_pexels(make: str, model: str, api_key: str) -> list[dict]:
         # Score and sort
         scored = []
         for p in photos:
-            # Filter: at least 1200px wide
             if p.get("width", 0) < 1200:
                 continue
             alt = p.get("alt", "")
@@ -124,7 +150,6 @@ def fetch_pexels(make: str, model: str, api_key: str) -> list[dict]:
             if p["id"] in seen_ids:
                 continue
             seen_ids.add(p["id"])
-            # Prefer large2x, fallback to large
             photo_url = p["src"].get("large2x") or p["src"].get("large") or p["src"]["original"]
             results.append({
                 "url": photo_url,
@@ -137,6 +162,103 @@ def fetch_pexels(make: str, model: str, api_key: str) -> list[dict]:
 
     except Exception as e:
         print(f"  Pexels exception: {e}")
+        return []
+
+
+# ── Unsplash API ─────────────────────────────────────────────────────
+
+def _score_unsplash_photo(description: str, alt: str, tags: list, make: str, model: str) -> int:
+    """Score an Unsplash photo by relevance to the car."""
+    text = f"{description} {alt} {' '.join(tags)}".lower()
+    make_lower = make.lower()
+    model_lower = model.lower()
+    score = 0
+
+    if make_lower in text and model_lower in text:
+        score += 3
+    elif make_lower in text:
+        score += 1
+
+    other_brands = [
+        "toyota", "honda", "bmw", "ford", "tesla", "hyundai", "kia",
+        "mazda", "mercedes", "audi", "volkswagen", "chevrolet", "nissan",
+        "jeep", "subaru", "lexus", "porsche", "ferrari", "lamborghini",
+    ]
+    for brand in other_brands:
+        if brand in text and brand != make_lower:
+            score -= 3
+            break
+
+    return score
+
+
+def fetch_unsplash(make: str, model: str, access_key: str) -> list[dict]:
+    """Fetch car photos from Unsplash API (official search endpoint)."""
+    url = "https://api.unsplash.com/search/photos"
+    headers = {"Authorization": f"Client-ID {access_key}"}
+    params = {
+        "query": f"{make} {model} car",
+        "orientation": "landscape",
+        "per_page": 15,
+    }
+
+    try:
+        resp = httpx.get(url, headers=headers, params=params, timeout=15)
+        if resp.status_code == 429:
+            wait = int(resp.headers.get("Retry-After", 10))
+            print(f"  Unsplash rate limited, waiting {wait}s...")
+            time.sleep(wait)
+            resp = httpx.get(url, headers=headers, params=params, timeout=15)
+
+        if resp.status_code == 403:
+            print(f"  Unsplash 403 — key may be invalid or rate-limited")
+            return []
+
+        if resp.status_code != 200:
+            print(f"  Unsplash error {resp.status_code}")
+            return []
+
+        data = resp.json()
+        photos = data.get("results", [])
+
+        # Score and sort
+        scored = []
+        for p in photos:
+            # Min width 1200
+            width = p.get("width", 0)
+            if width < 1200:
+                continue
+            desc = p.get("description") or ""
+            alt = p.get("alt_description") or ""
+            tags = [t.get("title", "") for t in p.get("tags", [])]
+            score = _score_unsplash_photo(desc, alt, tags, make, model)
+            scored.append((score, p))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+
+        # Take best 4 distinct photos
+        results = []
+        seen_ids = set()
+        for score, p in scored[:4]:
+            pid = p["id"]
+            if pid in seen_ids:
+                continue
+            seen_ids.add(pid)
+            # Use the regular-quality URL (1080px wide) — good balance of quality and speed
+            photo_url = p["urls"].get("regular") or p["urls"].get("full")
+            photographer = p.get("user", {}).get("name", "Unknown")
+            page_url = p.get("links", {}).get("html", "")
+            results.append({
+                "url": photo_url,
+                "credit": f"Photo by {photographer} on Unsplash",
+                "source_url": page_url,
+                "license": "Unsplash License",
+            })
+
+        return results
+
+    except Exception as e:
+        print(f"  Unsplash exception: {e}")
         return []
 
 
@@ -196,7 +318,6 @@ def fetch_wikimedia(make: str, model: str) -> list[dict]:
 
             # Check license
             license_short = meta.get("LicenseShortName", {}).get("value", "").lower()
-            license_url_val = meta.get("LicenseUrl", {}).get("value", "")
 
             is_allowed = False
             for allowed in ALLOWED_LICENSES:
@@ -218,8 +339,6 @@ def fetch_wikimedia(make: str, model: str) -> list[dict]:
 
             # Get artist/credit
             artist = meta.get("Artist", {}).get("value", "Unknown")
-            # Strip HTML tags from artist
-            import re
             artist_clean = re.sub(r"<[^>]+>", "", artist).strip()
             if len(artist_clean) > 80:
                 artist_clean = artist_clean[:80] + "…"
@@ -243,13 +362,30 @@ def fetch_wikimedia(make: str, model: str) -> list[dict]:
         return []
 
 
+# ── Helpers ──────────────────────────────────────────────────────────
+
+def _identify_source(photo: dict) -> str:
+    """Identify which source a photo came from."""
+    license_val = photo.get("license", "").lower()
+    credit_val = photo.get("credit", "").lower()
+    if "pexels" in license_val or "pexels" in credit_val:
+        return "Pexels"
+    if "unsplash" in license_val or "unsplash" in credit_val:
+        return "Unsplash"
+    return "Wikimedia"
+
+
 # ── Main ─────────────────────────────────────────────────────────────
 
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Fetch car photos for AutoEdge")
-    parser.add_argument("--pexels-only", action="store_true")
-    parser.add_argument("--wiki-only", action="store_true")
+    parser.add_argument("--pexels-only", action="store_true",
+                        help="Use only Pexels (needs PEXELS_API_KEY)")
+    parser.add_argument("--wiki-only", action="store_true",
+                        help="Use only Wikimedia Commons (no key needed)")
+    parser.add_argument("--unsplash-only", action="store_true",
+                        help="Use only Unsplash (needs UNSPLASH_ACCESS_KEY)")
     args = parser.parse_args()
 
     # Load existing data (preserve "locked" entries)
@@ -258,24 +394,44 @@ def main():
         with open(OUTPUT_JSON) as f:
             existing = json.load(f)
 
-    pexels_key = os.environ.get("PEXELS_API_KEY", "")
-    if not pexels_key:
-        try:
-            from dotenv import load_dotenv
-            load_dotenv(SCRIPT_DIR.parent / ".env")
-            pexels_key = os.environ.get("PEXELS_API_KEY", "")
-        except Exception:
-            pass
+    pexels_key, unsplash_key = _load_keys()
+
+    # Report available sources
+    print("=" * 60)
+    print("AVAILABLE SOURCES")
+    print("=" * 60)
+    if pexels_key:
+        print("  ✅ Pexels API — key found")
+    else:
+        print("  ⬚  Pexels API — no key (PEXELS_API_KEY empty or missing, skipping)")
+    if unsplash_key:
+        print("  ✅ Unsplash API — key found")
+    else:
+        print("  ⬚  Unsplash API — no key (UNSPLASH_ACCESS_KEY empty or missing, skipping)")
+    print("  ✅ Wikimedia Commons — always available (no key needed)")
+    print()
 
     vehicles = _get_vehicles_from_db()
     print(f"Found {len(vehicles)} vehicles in database.\n")
 
     result = {}
     low_photo_cars = []
+    source_stats = {"Pexels": 0, "Unsplash": 0, "Wikimedia": 0}
 
     for v in vehicles:
         key = f"{v['make']}|{v['model']}|{v['year']}"
         print(f"→ {key}")
+
+        # Skip cars whose photos are managed manually by the team
+        if (v["make"], v["model"], v["year"]) in MANUAL_PHOTO_CARS:
+            print("  [MANUAL PHOTOS — skipped by team decision]")
+            # Don't overwrite existing data if present
+            if key in existing:
+                result[key] = existing[key]
+            else:
+                result[key] = []
+            print()
+            continue
 
         # Skip locked entries
         if key in existing:
@@ -286,32 +442,55 @@ def main():
                 continue
 
         photos = []
+        car_sources = []
 
-        # Try Pexels first
-        if not args.wiki_only and pexels_key:
+        # ── Source 1: Pexels (if key available and not excluded) ──────
+        if not args.wiki_only and not args.unsplash_only and pexels_key:
             print("  Pexels: ", end="")
             pexels_photos = fetch_pexels(v["make"], v["model"], pexels_key)
             print(f"{len(pexels_photos)} photos")
             photos.extend(pexels_photos)
+            if pexels_photos:
+                car_sources.append("Pexels")
             time.sleep(RATE_LIMIT_DELAY)
 
-        # Wikimedia fallback (or primary if pexels-only is not set and Pexels gave <2)
-        if not args.pexels_only and len(photos) < 2:
+        # ── Source 2: Unsplash (if key available, used when < 2 photos) ──
+        if not args.wiki_only and not args.pexels_only and unsplash_key and len(photos) < MIN_PHOTOS_TARGET:
+            print("  Unsplash: ", end="")
+            unsplash_photos = fetch_unsplash(v["make"], v["model"], unsplash_key)
+            print(f"{len(unsplash_photos)} photos")
+            existing_urls = {p["url"] for p in photos}
+            for up in unsplash_photos:
+                if up["url"] not in existing_urls and len(photos) < 4:
+                    photos.append(up)
+            if unsplash_photos:
+                car_sources.append("Unsplash")
+            time.sleep(RATE_LIMIT_DELAY)
+
+        # ── Source 3: Wikimedia (always available, used when < 2 photos) ──
+        if not args.pexels_only and not args.unsplash_only and len(photos) < MIN_PHOTOS_TARGET:
             print("  Wikimedia: ", end="")
             wiki_photos = fetch_wikimedia(v["make"], v["model"])
             print(f"{len(wiki_photos)} photos")
-            # Add wiki photos that aren't duplicates
             existing_urls = {p["url"] for p in photos}
             for wp in wiki_photos:
                 if wp["url"] not in existing_urls and len(photos) < 4:
                     photos.append(wp)
+            if wiki_photos:
+                car_sources.append("Wikimedia")
             time.sleep(RATE_LIMIT_DELAY)
 
-        if len(photos) < 2:
+        # Track stats
+        for p in photos:
+            src = _identify_source(p)
+            source_stats[src] = source_stats.get(src, 0) + 1
+
+        if len(photos) < MIN_PHOTOS_TARGET:
             low_photo_cars.append(key)
 
         result[key] = photos
-        print(f"  Total: {len(photos)} photos\n")
+        source_str = " + ".join(car_sources) if car_sources else "none"
+        print(f"  Total: {len(photos)} photos (from: {source_str})\n")
 
     # Write JSON
     with open(OUTPUT_JSON, "w") as f:
@@ -322,26 +501,32 @@ def main():
     _generate_preview_html(result)
     print(f"✅ Wrote {OUTPUT_HTML}")
 
-    # Report
+    # ── Report ───────────────────────────────────────────────────────
     print(f"\n{'='*60}")
     print("REPORT")
     print(f"{'='*60}")
     for key, photos in result.items():
-        sources = set(
-            "Pexels" if "pexels" in p.get("license", "").lower() else "Wikimedia"
-            for p in photos
-        )
-        print(f"  {key}: {len(photos)} photos ({', '.join(sources) if sources else 'none'})")
+        sources = set(_identify_source(p) for p in photos)
+        count = len(photos)
+        indicator = "✅" if count >= MIN_PHOTOS_TARGET else "⚠️"
+        print(f"  {indicator} {key}: {count} photos ({', '.join(sources) if sources else 'none'})")
+
+    print(f"\n  Source totals: {', '.join(f'{k}: {v}' for k, v in source_stats.items() if v > 0)}")
+    total_photos = sum(len(p) for p in result.values())
+    print(f"  Total photos: {total_photos} across {len(result)} vehicles")
 
     if low_photo_cars:
-        print(f"\n⚠️  Cars with fewer than 2 photos ({len(low_photo_cars)}):")
+        print(f"\n⚠️  Cars with fewer than {MIN_PHOTOS_TARGET} photos ({len(low_photo_cars)}):")
         for car in low_photo_cars:
             print(f"    - {car}")
 
     if len(low_photo_cars) > 3:
-        print("\n⚠️  More than 3 cars have fewer than 2 photos.")
+        print(f"\n⚠️  More than 3 cars have fewer than {MIN_PHOTOS_TARGET} photos.")
         print("    The storefront will show a fallback image for cars without photos.")
         print("    You can add photos manually later via the staff vehicle form.")
+
+    if not low_photo_cars:
+        print(f"\n🎉 All vehicles have at least {MIN_PHOTOS_TARGET} photos!")
 
 
 def _generate_preview_html(data: dict):
@@ -356,22 +541,32 @@ h1 { color: #4D7FFF; }
 .photos { display: flex; gap: 10px; flex-wrap: wrap; }
 .photos img { height: 180px; border-radius: 6px; object-fit: cover; }
 .credit { font-size: 11px; color: #8B90A7; margin-top: 4px; }
+.source-badge { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+.source-pexels { background: #05A081; color: white; }
+.source-unsplash { background: #111; color: white; border: 1px solid #333; }
+.source-wikimedia { background: #339966; color: white; }
 .no-photos { color: #EF4444; font-style: italic; }
+.count { font-size: 13px; color: #8B90A7; margin-left: 10px; }
 </style></head><body>
 <h1>🚗 AutoEdge — Vehicle Images Preview</h1>
 <p>Review the photos below. Replace any by editing <code>vehicle_images.json</code> (set <code>"locked": true</code> to keep on re-run).</p>
 """]
 
     for key, photos in data.items():
-        html_parts.append(f'<div class="car"><h2>{key}</h2>')
+        count = len(photos)
+        count_color = "#4ADE80" if count >= 2 else "#EF4444"
+        html_parts.append(f'<div class="car"><h2>{key} <span class="count" style="color:{count_color}">{count} photo{"s" if count != 1 else ""}</span></h2>')
         if photos:
             html_parts.append('<div class="photos">')
             for p in photos:
                 credit = p.get("credit", "")
                 source = p.get("source_url", "")
+                src_name = _identify_source(p)
+                badge_class = f"source-{src_name.lower()}"
                 html_parts.append(
                     f'<div><img src="{p["url"]}" alt="{key}" loading="lazy">'
-                    f'<div class="credit"><a href="{source}" style="color:#4D7FFF">{credit}</a></div></div>'
+                    f'<div class="credit"><a href="{source}" style="color:#4D7FFF">{credit}</a>'
+                    f' <span class="source-badge {badge_class}">{src_name}</span></div></div>'
                 )
             html_parts.append('</div>')
         else:

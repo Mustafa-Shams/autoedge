@@ -34,8 +34,9 @@ class Settings(BaseSettings):
     # Store URLs
     STORE_BASE_URL: str = "http://localhost:5174"
 
-    # Pexels (local only)
+    # Image sources (local only — used by fetch_vehicle_images.py)
     PEXELS_API_KEY: str = ""
+    UNSPLASH_ACCESS_KEY: str = ""
 
 
 settings = Settings()

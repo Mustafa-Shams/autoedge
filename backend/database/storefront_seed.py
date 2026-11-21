@@ -203,6 +203,70 @@ NEW_VEHICLES = [
     },
 ]
 
+# 6 ADDITIONAL vehicles (team expansion — photos added manually by teammates)
+EXPANSION_VEHICLES = [
+    {
+        "make": "Toyota", "model": "Fortuner", "year": 2023,
+        "color": "White", "price": Decimal("52000.00"),
+        "stock_quantity": 3, "body_type": "SUV", "fuel_type": "Diesel",
+        "transmission": "Automatic", "condition_type": "New",
+        "mileage_km": 0, "status": "Available",
+        "engine": "2.8L Turbo Diesel", "horsepower": 201, "seats": 7,
+        "drivetrain": "4WD", "is_published": True,
+        "description": "The Toyota Fortuner is a rugged body-on-frame SUV built for both highway cruising and off-road adventure. With seating for seven, a proven turbo-diesel engine, and Toyota's reputation for reliability, it handles family trips and rough terrain with equal confidence.",
+    },
+    {
+        "make": "Ferrari", "model": "488 GTB", "year": 2018,
+        "color": "Rosso Corsa Red", "price": Decimal("265000.00"),
+        "stock_quantity": 1, "body_type": "Coupe", "fuel_type": "Petrol",
+        "transmission": "Automatic", "condition_type": "Used",
+        "mileage_km": 12000, "status": "Available",
+        "engine": "3.9L Twin-Turbo V8", "horsepower": 661, "seats": 2,
+        "drivetrain": "RWD", "is_published": True,
+        "description": "The Ferrari 488 GTB is a mid-engine Italian supercar that combines breathtaking performance with everyday usability. Its twin-turbo V8 produces 661 horsepower, delivering a 0–100 km/h time of just 3.0 seconds with an unmistakable exhaust note.",
+    },
+    {
+        "make": "Mercedes-Benz", "model": "C-Class C200", "year": 2020,
+        "color": "Iridium Silver", "price": Decimal("36500.00"),
+        "stock_quantity": 2, "body_type": "Sedan", "fuel_type": "Petrol",
+        "transmission": "Automatic", "condition_type": "Used",
+        "mileage_km": 38000, "status": "Available",
+        "engine": "1.5L Turbo Mild-Hybrid", "horsepower": 184, "seats": 5,
+        "drivetrain": "RWD", "is_published": True,
+        "description": "The Mercedes-Benz C200 pairs a fuel-efficient mild-hybrid powertrain with the refined luxury the C-Class is known for. Well-maintained at 38,000 km, it offers a premium cabin, smooth ride, and advanced driver-assistance features at an accessible price point.",
+    },
+    {
+        "make": "BMW", "model": "M4 Competition", "year": 2021,
+        "color": "Alpine White", "price": Decimal("82000.00"),
+        "stock_quantity": 1, "body_type": "Coupe", "fuel_type": "Petrol",
+        "transmission": "Automatic", "condition_type": "Used",
+        "mileage_km": 15000, "status": "Available",
+        "engine": "3.0L Twin-Turbo Inline-6", "horsepower": 503, "seats": 4,
+        "drivetrain": "RWD", "is_published": True,
+        "description": "The BMW M4 Competition is a track-ready coupe powered by a 503-horsepower twin-turbo inline-six that pushes 0–100 km/h in 3.9 seconds. With adaptive M suspension, carbon-fibre accents, and an aggressive widebody stance, it blurs the line between road car and race car.",
+    },
+    {
+        "make": "Porsche", "model": "918 Spyder", "year": 2015,
+        "color": "Liquid Metal Silver", "price": Decimal("1650000.00"),
+        "stock_quantity": 1, "body_type": "Convertible", "fuel_type": "Hybrid",
+        "transmission": "Automatic", "condition_type": "Used",
+        "mileage_km": 6500, "status": "Available",
+        "engine": "4.6L V8 + 2 Electric Motors", "horsepower": 887, "seats": 2,
+        "drivetrain": "AWD", "is_published": True,
+        "description": "The Porsche 918 Spyder is a limited-production hybrid hypercar that combines a naturally-aspirated 4.6-litre V8 with two electric motors for a combined 887 horsepower. With only 918 units ever produced, this is a rare collector's piece that also holds a Nürburgring lap record.",
+    },
+    {
+        "make": "Suzuki", "model": "Swift", "year": 2022,
+        "color": "Red", "price": Decimal("14500.00"),
+        "stock_quantity": 5, "body_type": "Hatchback", "fuel_type": "Petrol",
+        "transmission": "CVT", "condition_type": "New",
+        "mileage_km": 0, "status": "Available",
+        "engine": "1.2L Dualjet", "horsepower": 82, "seats": 5,
+        "drivetrain": "FWD", "is_published": True,
+        "description": "The Suzuki Swift is a nimble, fuel-efficient city hatchback that punches above its weight class. Light, easy to park, and cheap to run, it offers a surprisingly fun driving experience with a well-equipped interior for its price range.",
+    },
+]
+
 # Service types per spec table
 SERVICE_TYPES = [
     {"name": "Oil Change", "base_price": Decimal("45.00"), "booking_fee": Decimal("5.00"), "duration_minutes": 45, "required_specialty": "Mechanic"},
@@ -231,8 +295,15 @@ DEMO_CUSTOMERS = [
 ]
 
 
-def seed(db: Session):
-    """Run all seed steps."""
+def seed(db: Session, *, with_images: bool = False):
+    """Run all seed steps.
+
+    Args:
+        with_images: If True, load vehicle photos from vehicle_images.json and
+                     set main_image_url. If False (default), skip image loading
+                     entirely — existing values are left untouched and new cars
+                     keep main_image_url = NULL.
+    """
     now = utcnow()
 
     # ── 1. Backfill existing vehicles ────────────────────────────────
@@ -273,43 +344,63 @@ def seed(db: Session):
 
     db.flush()
 
-    # ── 3. Set images from vehicle_images.json ───────────────────────
-    print("\n3. Setting vehicle images...")
-    images_file = Path(__file__).parent / "vehicle_images.json"
-    if images_file.exists():
-        with open(images_file) as f:
-            images_data = json.load(f)
+    # ── 2b. Add 6 expansion vehicles (photos added manually later) ───
+    print("\n2b. Adding 6 expansion vehicles (manual photos)...")
+    for vdata in EXPANSION_VEHICLES:
+        existing = db.query(Vehicle).filter(
+            Vehicle.make == vdata["make"],
+            Vehicle.model == vdata["model"],
+            Vehicle.year == vdata["year"],
+        ).first()
+        if existing:
+            print(f"  Already exists: {vdata['make']} {vdata['model']} {vdata['year']}")
+        else:
+            v = Vehicle(**vdata)
+            db.add(v)
+            print(f"  Added: {vdata['make']} {vdata['model']} {vdata['year']} (stock={vdata['stock_quantity']})")
 
-        for key, photos in images_data.items():
-            parts = key.split("|")
-            if len(parts) != 3:
-                continue
-            make, model, year = parts[0], parts[1], int(parts[2])
-            vehicle = db.query(Vehicle).filter(
-                Vehicle.make == make, Vehicle.model == model, Vehicle.year == year
-            ).first()
-            if not vehicle or not photos:
-                continue
+    db.flush()
 
-            # Set main_image_url from first photo
-            vehicle.main_image_url = photos[0]["url"]
+    # ── 3. Set images from vehicle_images.json (opt-in only) ────────
+    print("\n3. Vehicle images...")
+    if with_images:
+        images_file = Path(__file__).parent / "vehicle_images.json"
+        if images_file.exists():
+            with open(images_file) as f:
+                images_data = json.load(f)
 
-            # Insert vehicle_images (clear existing first for idempotency)
-            db.query(VehicleImage).filter(VehicleImage.vehicle_id == vehicle.vehicle_id).delete()
-            for i, p in enumerate(photos):
-                img = VehicleImage(
-                    vehicle_id=vehicle.vehicle_id,
-                    image_url=p["url"],
-                    sort_order=i,
-                    credit=p.get("credit"),
-                    source_url=p.get("source_url"),
-                )
-                db.add(img)
-            print(f"  {make} {model} {year}: {len(photos)} images")
+            for key, photos in images_data.items():
+                parts = key.split("|")
+                if len(parts) != 3:
+                    continue
+                make, model, year = parts[0], parts[1], int(parts[2])
+                vehicle = db.query(Vehicle).filter(
+                    Vehicle.make == make, Vehicle.model == model, Vehicle.year == year
+                ).first()
+                if not vehicle or not photos:
+                    continue
 
-        db.flush()
+                # Set main_image_url from first photo
+                vehicle.main_image_url = photos[0]["url"]
+
+                # Insert vehicle_images (clear existing first for idempotency)
+                db.query(VehicleImage).filter(VehicleImage.vehicle_id == vehicle.vehicle_id).delete()
+                for i, p in enumerate(photos):
+                    img = VehicleImage(
+                        vehicle_id=vehicle.vehicle_id,
+                        image_url=p["url"],
+                        sort_order=i,
+                        credit=p.get("credit"),
+                        source_url=p.get("source_url"),
+                    )
+                    db.add(img)
+                print(f"  {make} {model} {year}: {len(photos)} images")
+
+            db.flush()
+        else:
+            print("  ⚠️  vehicle_images.json not found — skipping images")
     else:
-        print("  ⚠️  vehicle_images.json not found — skipping images (fallback will be used)")
+        print("  Skipped (use --with-images to load photos from vehicle_images.json)")
 
     # ── 4. Service types ─────────────────────────────────────────────
     print("\n4. Adding service types...")
@@ -756,9 +847,22 @@ def seed(db: Session):
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="AutoEdge storefront seed")
+    parser.add_argument(
+        "--with-images",
+        action="store_true",
+        default=False,
+        help="Load vehicle photos from vehicle_images.json and set main_image_url. "
+             "Without this flag, images are NOT loaded (photos are managed via "
+             "the staff portal vehicle form).",
+    )
+    args = parser.parse_args()
+
     db = SessionLocal()
     try:
-        seed(db)
+        seed(db, with_images=args.with_images)
     except Exception as e:
         db.rollback()
         print(f"\n❌ Seed failed: {e}")

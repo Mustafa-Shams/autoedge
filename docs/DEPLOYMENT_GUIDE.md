@@ -358,7 +358,7 @@ The "seed" is a script that fills your database with demo data — sample cars, 
 - **"relation does not exist"** — Run `alembic upgrade head` first to create the tables, then run the seed again.
 
 ### ✅ How to know it worked:
-- Go to your storefront URL → Cars page. You should see 16 cars with photos (if you did Step 2–3), descriptions, prices, and stock counts.
+- Go to your storefront URL → Cars page. You should see 22 cars with photos (if you did Step 2–3), descriptions, prices, and stock counts.
 - Try logging in with `demo1@example.com` / `Demo@1234`. You should see a bank balance of ~$50,000 and an active reservation for the Kia Sportage.
 
 ---

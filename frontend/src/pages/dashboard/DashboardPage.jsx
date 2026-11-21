@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Car, CheckCircle, TrendingUp, Wrench, DollarSign,
-  Bookmark, CalendarCheck, MessageSquare, PackageX,
+  Bookmark, CalendarCheck, MessageSquare, PackageX, Layers,
 } from "lucide-react";
 import axios from "../../api/axiosInstance";
 import PageWrapper from "../../components/layout/PageWrapper";
@@ -50,8 +50,9 @@ export default function DashboardPage() {
         </div>
 
         {/* Original KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-          <StatCard icon={Car} label="Total Vehicles" value={stats?.total_vehicles ?? 0} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <StatCard icon={Car} label="Vehicle Listings" value={stats?.total_vehicles ?? 0} />
+          <StatCard icon={Layers} label="Units in Stock" value={stats?.units_in_stock ?? 0} color="text-teal-400" />
           <StatCard icon={CheckCircle} label="Available" value={stats?.available_vehicles ?? 0} color="text-status-available" />
           <StatCard icon={TrendingUp} label="Sold This Month" value={stats?.sold_this_month ?? 0} color="text-status-sold" />
           <StatCard
