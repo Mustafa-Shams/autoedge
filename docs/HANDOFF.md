@@ -1,5 +1,5 @@
 # HANDOFF — AutoEdge Storefront
-Last updated: 2026-11-21 18:45 PKT by Antigravity session
+Last updated: 2026-11-21 20:20 PKT by Antigravity session
 Current phase: Post-P48 hotfix — status: COMPLETE
 
 ## Done
@@ -24,6 +24,7 @@ Current phase: Post-P48 hotfix — status: COMPLETE
 - P48: README, HANDOFF, DECISIONS — COMPLETE
 - Post-P48: Showroom expanded from 16 → 22 vehicles (Decision #19). 6 new cars added: Toyota Fortuner, Ferrari 488 GTB, Mercedes-Benz C-Class C200, BMW M4 Competition, Porsche 918 Spyder, Suzuki Swift. Photos for new cars are manual (teammates will add later). fetch_vehicle_images.py has MANUAL_PHOTO_CARS skip list.
 - Post-P48 hotfix (Decision #22): Trailing-slash 307 fix on 5 POST routes (reviews, enquiries, test_drives, trade_ins, restock). BankCard 3D flip with `/store/bank/sensitive` endpoint. NotificationContext for unified unread count. Compare page Remove/Clear working. EMI vehicle dropdown. CarDetail sticky fix + wishlist toggle. BackButton components in both apps. 12 new tests (111 total).
+- Vehicle image fix (Decision #23): `PUT /vehicles/{id}/images/bulk` atomic endpoint. `VehicleResponse` now includes `images[]`. Staff form rewrite: loads existing images on edit, thumbnail previews, inline edit/delete/reorder/make-main, auto-adds pending URL, URL validation, max 8, transactional save via bulk endpoint. Storefront `CarDetailPage` prepends `main_image_url` as first gallery image. 17 new tests (128 total).
 
 ## Half-done / in progress
 - None — all phases complete
@@ -43,17 +44,16 @@ Current phase: Post-P48 hotfix — status: COMPLETE
 - Cloudinary: create unsigned upload preset `autoedge_tradein` (if trade-in photos needed for demo)
 
 ## Re-check first (the new session runs these before any new work)
-- [x] `pytest tests/ -v --tb=short` → 111 passed (99 original + 12 new post-P48)
+- [x] `pytest tests/ -v --tb=short` → 128 passed (99 original + 12 post-P48 + 17 image tests)
 - [x] `cd storefront && npm run build` → 0 errors
 - [x] `cd frontend && npm run build` → 0 errors
 - [ ] README.md has ER diagram, demo logins, DB features list
 - [ ] docs/DECISIONS.md and docs/HANDOFF.md exist
 
 ## Known problems and workarounds
-- Staff frontend chunk size warning (936KB) — pre-existing from P01-P29, not critical for demo
+- Staff frontend chunk size warning (944KB) — pre-existing from P01-P29, not critical for demo
 - Pexels API keys paused — script now supports Wikimedia Commons + Unsplash fallbacks. 6 new cars skip image fetch (MANUAL_PHOTO_CARS). Fallback gradient + car icon shown when no images.
 - Email sending requires Brevo/SendGrid setup — `EMAIL_PROVIDER=none` logs only (default)
-- Staff frontend `BackButton.jsx` exists in `frontend/src/components/common/` but is not wired into pages (staff pages already have inline back navigation with ArrowLeft icons)
 
 ## Setup facts (names only, never secret values)
 - Env variables already set locally: `DATABASE_URL`, `SECRET_KEY`, `CORS_ORIGINS`, `SHOWROOM_TIMEZONE`, `DEMO_STARTING_BALANCE`, `EMAIL_PROVIDER`, `STORE_BASE_URL`

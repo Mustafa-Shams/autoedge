@@ -136,6 +136,7 @@ export default function ComparePage() {
                   <th key={v.vehicle_id} className="p-3 text-center min-w-[220px]">
                     <div className="bg-bg-card border border-bg-border rounded-xl overflow-hidden">
                       <Link to={`/cars/${v.vehicle_id}`}>
+                        {/* Always show main_image_url as the compare card cover (Decision #23) */}
                         <ImageWithFallback
                           src={v.main_image_url}
                           alt={`${v.year} ${v.make} ${v.model}`}

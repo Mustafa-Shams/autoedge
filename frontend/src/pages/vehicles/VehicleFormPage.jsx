@@ -1,8 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
-import { Plus, Trash2, Image as ImageIcon } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Image as ImageIcon,
+  ChevronUp,
+  ChevronDown,
+  Star,
+  Pencil,
+  Check,
+  X,
+  AlertTriangle,
+} from "lucide-react";
 import { vehiclesApi } from "../../api/vehiclesApi";
 import PageWrapper from "../../components/layout/PageWrapper";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
@@ -15,15 +26,28 @@ const BODY_TYPES = ["Sedan", "SUV", "Truck", "Hatchback", "Coupe", "Convertible"
 const DRIVETRAINS = ["FWD", "RWD", "AWD", "4WD"];
 const STATUSES = ["Available", "Reserved", "Sold"];
 
+const MAX_ADDITIONAL = 8;
+
+function isValidUrl(str) {
+  return /^https?:\/\/.+/i.test(str?.trim());
+}
+
 export default function VehicleFormPage() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Image URLs state (up to 8 extra images)
+  // Image state — {image_url, sort_order, credit?, source_url?}
   const [imageUrls, setImageUrls] = useState([]);
   const [newImageUrl, setNewImageUrl] = useState("");
+  const [urlError, setUrlError] = useState("");
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [editValue, setEditValue] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [imageSaveError, setImageSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const newUrlRef = useRef(null);
 
   const { data: existing, isLoading } = useQuery({
     queryKey: ["vehicle", id],
@@ -31,36 +55,150 @@ export default function VehicleFormPage() {
     enabled: isEdit,
   });
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm();
+  const { register, handleSubmit, reset, getValues, formState: { errors } } = useForm();
 
+  // Populate form + images when existing data loads
   useEffect(() => {
     if (existing) {
       reset(existing);
+      // Load existing images from the backend (Decision #23 — VehicleResponse now includes images[])
+      if (existing.images && existing.images.length > 0) {
+        setImageUrls(
+          existing.images
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .map((img) => ({
+              image_url: img.image_url,
+              sort_order: img.sort_order,
+              credit: img.credit || null,
+              source_url: img.source_url || null,
+            }))
+        );
+      }
     }
   }, [existing, reset]);
 
+  // Vehicle create/update mutation — NO onSuccess navigate (we handle it after images)
   const mutation = useMutation({
     mutationFn: (data) =>
       isEdit ? vehiclesApi.update(id, data) : vehiclesApi.create(data),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries(["vehicles"]);
-      navigate(`/vehicles/${data.vehicle_id}`);
-    },
   });
+
+  // ── Image helpers ──────────────────────────────────────────────────
 
   function addImageUrl() {
     const url = newImageUrl.trim();
-    if (url && imageUrls.length < 8) {
-      setImageUrls([...imageUrls, url]);
-      setNewImageUrl("");
+    setUrlError("");
+    if (!url) return;
+    if (!isValidUrl(url)) {
+      setUrlError("URL must start with http:// or https://");
+      return;
     }
+    // Check for duplicates — also check against main_image_url
+    const mainUrl = getValues("main_image_url")?.trim();
+    const allUrls = imageUrls.map((img) => img.image_url);
+    if (mainUrl && url === mainUrl) {
+      setUrlError("This URL is already set as the main image");
+      return;
+    }
+    if (allUrls.includes(url)) {
+      setUrlError("Duplicate URL — this image is already added");
+      return;
+    }
+    if (imageUrls.length >= MAX_ADDITIONAL) {
+      setUrlError(`Maximum ${MAX_ADDITIONAL} additional images allowed`);
+      return;
+    }
+    setImageUrls([...imageUrls, { image_url: url, sort_order: imageUrls.length + 1 }]);
+    setNewImageUrl("");
   }
 
   function removeImageUrl(index) {
     setImageUrls(imageUrls.filter((_, i) => i !== index));
+    setDeleteConfirm(null);
   }
 
+  function moveImage(index, direction) {
+    const newList = [...imageUrls];
+    const target = index + direction;
+    if (target < 0 || target >= newList.length) return;
+    [newList[index], newList[target]] = [newList[target], newList[index]];
+    setImageUrls(newList);
+  }
+
+  function makeMain(index) {
+    // Swap: selected additional becomes main, old main becomes first additional
+    const currentMain = getValues("main_image_url")?.trim() || "";
+    const selectedImg = imageUrls[index];
+    // Set the new main via react-hook-form
+    // We'll need to use setValue which we get from useForm
+    // Actually, we can just manipulate the DOM input directly or use reset
+    // Better: modify the form data in onSubmit. For now, update the displayed state:
+    const newList = [...imageUrls];
+    newList.splice(index, 1);
+    // If old main exists, insert it at the beginning of additional images
+    if (currentMain) {
+      newList.unshift({ image_url: currentMain, sort_order: 0 });
+    }
+    setImageUrls(newList);
+    // Update the main_image_url input
+    const mainInput = document.querySelector('input[name="main_image_url"]');
+    if (mainInput) {
+      // React-hook-form synthetic event
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype, "value"
+      ).set;
+      nativeInputValueSetter.call(mainInput, selectedImg.image_url);
+      mainInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }
+
+  function startEdit(index) {
+    setEditingIndex(index);
+    setEditValue(imageUrls[index].image_url);
+  }
+
+  function confirmEdit(index) {
+    const url = editValue.trim();
+    if (!isValidUrl(url)) return;
+    // Check duplicates
+    const others = imageUrls.filter((_, i) => i !== index).map((img) => img.image_url);
+    const mainUrl = getValues("main_image_url")?.trim();
+    if (others.includes(url) || (mainUrl && url === mainUrl)) return;
+    const newList = [...imageUrls];
+    newList[index] = { ...newList[index], image_url: url };
+    setImageUrls(newList);
+    setEditingIndex(null);
+    setEditValue("");
+  }
+
+  function cancelEdit() {
+    setEditingIndex(null);
+    setEditValue("");
+  }
+
+  // ── Submit ─────────────────────────────────────────────────────────
+
   async function onSubmit(data) {
+    setSaving(true);
+    setImageSaveError("");
+
+    // Auto-add pending URL if the user typed one but didn't click Add
+    let finalImages = [...imageUrls];
+    const pendingUrl = newImageUrl.trim();
+    if (pendingUrl) {
+      if (!isValidUrl(pendingUrl)) {
+        setUrlError("URL must start with http:// or https://");
+        setSaving(false);
+        return;
+      }
+      const allUrls = finalImages.map((img) => img.image_url);
+      const mainUrl = data.main_image_url?.trim();
+      if (!allUrls.includes(pendingUrl) && pendingUrl !== mainUrl && finalImages.length < MAX_ADDITIONAL) {
+        finalImages.push({ image_url: pendingUrl, sort_order: finalImages.length + 1 });
+        setNewImageUrl("");
+      }
+    }
+
     // Parse numeric fields
     const payload = {
       ...data,
@@ -78,20 +216,45 @@ export default function VehicleFormPage() {
       if (payload[key] === "") payload[key] = null;
     }
 
-    const result = await mutation.mutateAsync(payload);
+    // Don't send main_image_url in the vehicle payload — it will be set via bulk images
+    // Actually, keep it so the vehicle row is correct even without the bulk call
+    // But we'll also set it in the bulk call.
 
-    // If creating/editing and we have image URLs to add, add them one by one
-    if (imageUrls.length > 0 && result.vehicle_id) {
-      for (let i = 0; i < imageUrls.length; i++) {
-        try {
-          await vehiclesApi.addImage(result.vehicle_id, {
-            image_url: imageUrls[i],
-            sort_order: i + 1,
-          });
-        } catch {
-          // Don't fail the whole form if one image fails
+    try {
+      const result = await mutation.mutateAsync(payload);
+      const vehicleId = result.vehicle_id;
+
+      // Atomic image save via bulk endpoint (Decision #23)
+      await vehiclesApi.replaceImages(vehicleId, {
+        main_image_url: payload.main_image_url || null,
+        images: finalImages.map((img, i) => ({
+          image_url: img.image_url,
+          sort_order: i + 1,
+          credit: img.credit || null,
+          source_url: img.source_url || null,
+        })),
+      });
+
+      // Invalidate queries and navigate
+      queryClient.invalidateQueries(["vehicles"]);
+      queryClient.invalidateQueries(["vehicle", String(vehicleId)]);
+      navigate(`/vehicles/${vehicleId}`);
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      if (detail) {
+        // Show specific validation errors from the bulk endpoint
+        if (Array.isArray(detail)) {
+          setImageSaveError(detail.map((d) => d.msg || d.message || JSON.stringify(d)).join("; "));
+        } else if (typeof detail === "string") {
+          setImageSaveError(detail);
+        } else {
+          setImageSaveError(JSON.stringify(detail));
         }
+      } else {
+        setImageSaveError(err.message || "An error occurred while saving.");
       }
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -223,42 +386,147 @@ export default function VehicleFormPage() {
             </Field>
           </div>
 
-          {/* Image URLs */}
+          {/* ── Images Section (Decision #23) ────────────────────────── */}
           <div>
             <h3 className="text-sm font-semibold text-text-primary mb-3 uppercase tracking-wide">
               Images
             </h3>
 
-            <Field label="Main Image URL">
+            {/* Main image URL with thumbnail */}
+            <Field label="Main Image URL (cover photo)">
               <input {...register("main_image_url")} placeholder="https://..." className="input" />
             </Field>
+            {/* Main image preview */}
+            <MainImagePreview getValues={getValues} />
 
-            <div className="mt-4">
-              <label className="block text-xs font-medium uppercase tracking-wide text-text-muted mb-1.5">
-                Additional Image URLs (up to 8)
+            {/* Additional images */}
+            <div className="mt-5">
+              <label className="block text-xs font-medium uppercase tracking-wide text-text-muted mb-2">
+                Additional Image URLs ({imageUrls.length}/{MAX_ADDITIONAL})
               </label>
+
+              {/* Image list */}
               <div className="space-y-2">
-                {imageUrls.map((url, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className="flex-1 flex items-center gap-2 bg-bg-elevated border border-bg-border rounded-lg px-3 py-2">
-                      <ImageIcon className="w-4 h-4 text-text-muted flex-shrink-0" />
-                      <span className="text-sm text-text-secondary truncate">{url}</span>
+                {imageUrls.map((img, i) => (
+                  <div
+                    key={`img-${i}`}
+                    className="flex items-center gap-2 group"
+                  >
+                    {/* Thumbnail */}
+                    <div className="w-12 h-9 rounded-md overflow-hidden bg-bg-elevated border border-bg-border flex-shrink-0">
+                      <img
+                        src={img.image_url}
+                        alt={`Additional ${i + 1}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { e.target.style.display = "none"; }}
+                      />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeImageUrl(i)}
-                      className="p-2 text-text-muted hover:text-status-cancelled transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+
+                    {/* URL display / edit */}
+                    <div className="flex-1 min-w-0">
+                      {editingIndex === i ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className="flex-1 input text-xs py-1"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") { e.preventDefault(); confirmEdit(i); }
+                              if (e.key === "Escape") cancelEdit();
+                            }}
+                          />
+                          <button type="button" onClick={() => confirmEdit(i)} className="p-1 text-status-available hover:text-status-available/80">
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                          <button type="button" onClick={cancelEdit} className="p-1 text-text-muted hover:text-text-secondary">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 bg-bg-elevated border border-bg-border rounded-lg px-3 py-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />
+                          <span className="text-xs text-text-secondary truncate">{img.image_url}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    {editingIndex !== i && (
+                      <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                        {/* Make main */}
+                        <button
+                          type="button"
+                          onClick={() => makeMain(i)}
+                          className="p-1.5 text-text-muted hover:text-amber-400 transition-colors"
+                          title="Make this the main image"
+                        >
+                          <Star className="w-3.5 h-3.5" />
+                        </button>
+                        {/* Edit */}
+                        <button
+                          type="button"
+                          onClick={() => startEdit(i)}
+                          className="p-1.5 text-text-muted hover:text-accent-blue transition-colors"
+                          title="Edit URL"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        {/* Move up */}
+                        <button
+                          type="button"
+                          onClick={() => moveImage(i, -1)}
+                          disabled={i === 0}
+                          className="p-1.5 text-text-muted hover:text-text-primary disabled:opacity-30 transition-colors"
+                          title="Move up"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        {/* Move down */}
+                        <button
+                          type="button"
+                          onClick={() => moveImage(i, 1)}
+                          disabled={i === imageUrls.length - 1}
+                          className="p-1.5 text-text-muted hover:text-text-primary disabled:opacity-30 transition-colors"
+                          title="Move down"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        {/* Delete */}
+                        {deleteConfirm === i ? (
+                          <div className="flex items-center gap-1 ml-1">
+                            <span className="text-[10px] text-status-cancelled">Delete?</span>
+                            <button type="button" onClick={() => removeImageUrl(i)} className="p-1 text-status-cancelled hover:text-status-cancelled/80">
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button type="button" onClick={() => setDeleteConfirm(null)} className="p-1 text-text-muted hover:text-text-secondary">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirm(i)}
+                            className="p-1.5 text-text-muted hover:text-status-cancelled transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
-                {imageUrls.length < 8 && (
-                  <div className="flex gap-2">
+
+                {/* Add new URL */}
+                {imageUrls.length < MAX_ADDITIONAL && (
+                  <div className="flex gap-2 mt-2">
                     <input
+                      ref={newUrlRef}
                       type="text"
                       value={newImageUrl}
-                      onChange={(e) => setNewImageUrl(e.target.value)}
+                      onChange={(e) => { setNewImageUrl(e.target.value); setUrlError(""); }}
                       placeholder="Paste image URL here..."
                       className="flex-1 input"
                       onKeyDown={(e) => {
@@ -279,9 +547,19 @@ export default function VehicleFormPage() {
                   </div>
                 )}
               </div>
-              <p className="text-xs text-text-muted mt-1">
-                {imageUrls.length}/8 additional images
-              </p>
+
+              {/* URL validation error */}
+              {urlError && (
+                <p className="text-xs text-status-cancelled mt-1">{urlError}</p>
+              )}
+
+              {/* Pending URL warning */}
+              {newImageUrl.trim() && !urlError && (
+                <div className="flex items-center gap-1.5 mt-1.5 text-xs text-amber-400">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>This URL will be auto-added when you save.</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -290,9 +568,10 @@ export default function VehicleFormPage() {
             <textarea {...register("notes")} rows={2} placeholder="Internal notes..." className="input resize-none" />
           </Field>
 
-          {mutation.isError && (
+          {/* Error messages */}
+          {(mutation.isError || imageSaveError) && (
             <p className="text-sm text-status-cancelled">
-              {mutation.error?.response?.data?.detail ?? "An error occurred."}
+              {imageSaveError || mutation.error?.response?.data?.detail || "An error occurred."}
             </p>
           )}
 
@@ -306,10 +585,10 @@ export default function VehicleFormPage() {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || mutation.isPending}
+              disabled={saving || mutation.isPending}
               className="px-4 py-2 rounded-lg text-sm font-medium bg-accent-blue hover:bg-accent-blueHover text-white disabled:opacity-60"
             >
-              {isSubmitting || mutation.isPending
+              {saving || mutation.isPending
                 ? "Saving..."
                 : isEdit
                 ? "Update Vehicle"
@@ -321,6 +600,43 @@ export default function VehicleFormPage() {
     </PageWrapper>
   );
 }
+
+// ── Main image thumbnail preview ─────────────────────────────────────
+
+function MainImagePreview({ getValues }) {
+  const [src, setSrc] = useState("");
+  const [show, setShow] = useState(false);
+
+  // Poll the form value every 500ms (simpler than registering a watcher)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const val = getValues("main_image_url") || "";
+      if (val !== src) {
+        setSrc(val);
+        setShow(isValidUrl(val));
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [getValues, src]);
+
+  if (!show || !src) return null;
+
+  return (
+    <div className="mt-2 flex items-center gap-3">
+      <div className="w-20 h-14 rounded-lg overflow-hidden bg-bg-elevated border border-bg-border">
+        <img
+          src={src}
+          alt="Main preview"
+          className="w-full h-full object-cover"
+          onError={(e) => { e.target.style.display = "none"; }}
+        />
+      </div>
+      <span className="text-[10px] text-text-muted">Main image preview</span>
+    </div>
+  );
+}
+
+// ── Field component ──────────────────────────────────────────────────
 
 function Field({ label, error, children }) {
   return (
