@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus, Search } from "lucide-react";
 import { customersApi } from "../../api/customersApi";
 import { useDebounce } from "../../hooks/useDebounce";
-import PageWrapper from "../../components/layout/PageWrapper";
 import DataTable from "../../components/common/DataTable";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import EmptyState from "../../components/common/EmptyState";
@@ -41,7 +40,7 @@ export default function CustomersPage() {
   const totalPages = Math.max(1, Math.ceil(customers.length / PAGE_SIZE));
 
   return (
-    <PageWrapper>
+
       <div className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -91,6 +90,6 @@ export default function CustomersPage() {
           />
         )}
       </div>
-    </PageWrapper>
+
   );
 }

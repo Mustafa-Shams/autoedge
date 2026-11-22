@@ -1,3 +1,4 @@
+import BackButton from "../../components/common/BackButton";
 /**
  * TradeInsPage — staff page for managing customer trade-in requests.
  * Lists trade-ins, allows setting Under Review / Offer Made with offered value.
@@ -6,6 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getTradeIns, updateTradeIn } from '../../api/tradeInsApi';
 import { RefreshCw, Filter, AlertTriangle, ArrowRightLeft, Eye, DollarSign, CheckCircle } from 'lucide-react';
+import ImageLightbox from '../../components/common/ImageLightbox';
 
 const STATUS_OPTIONS = ['', 'Submitted', 'Under Review', 'Offer Made', 'Accepted', 'Declined', 'Expired', 'Completed', 'Cancelled'];
 
@@ -28,6 +30,10 @@ export default function TradeInsPage() {
 
   // Detail modal
   const [detailTarget, setDetailTarget] = useState(null);
+
+  // Lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const fetchData = useCallback(async () => {
     try {
@@ -112,7 +118,8 @@ export default function TradeInsPage() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+
+    <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -245,7 +252,9 @@ export default function TradeInsPage() {
       {detailTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDetailTarget(null)} />
-          <div className="relative bg-bg-card border border-bg-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto p-6">
+          <div role="dialog" aria-modal="true" aria-label="Trade-in details" className="relative bg-bg-card border border-bg-border rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6">
+            <BackButton onClick={() => setDetailTarget(null)} className="mb-3" />
+            <div className="mb-2 text-sm text-text-secondary">Status: {detailTarget.status}</div>
             <h3 className="text-lg font-bold text-text-primary mb-1">{detailTarget.year} {detailTarget.make} {detailTarget.model}</h3>
             <p className="text-sm text-text-secondary mb-4">{detailTarget.mileage_km?.toLocaleString()} km • {detailTarget.condition_rating}{detailTarget.color ? ` • ${detailTarget.color}` : ''}</p>
 
@@ -261,9 +270,9 @@ export default function TradeInsPage() {
                 <p className="text-xs text-text-muted uppercase tracking-wider mb-2">Photos ({detailTarget.images.length})</p>
                 <div className="grid grid-cols-3 gap-2">
                   {detailTarget.images.map((img, i) => (
-                    <div key={img.image_id || i} className="aspect-square rounded-lg overflow-hidden bg-bg-elevated border border-bg-border">
+                    <button type="button" aria-label={`Open photo ${i + 1}`} key={img.image_id || i} className="aspect-square rounded-lg overflow-hidden bg-bg-elevated border border-bg-border cursor-pointer hover:ring-2 hover:ring-accent-blue transition-all" onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}>
                       <img src={img.image_url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -292,6 +301,12 @@ export default function TradeInsPage() {
                 <div className="bg-accent-blue/5 border border-accent-blue/20 rounded-lg p-3">
                   <p className="text-[10px] text-accent-blue uppercase">Your Offer</p>
                   <p className="text-sm font-bold text-accent-blue">{formatPrice(detailTarget.offered_value)}</p>
+                  {detailTarget.offer_valid_until && (
+                    <p className="mt-1 text-xs text-text-secondary">
+                      {detailTarget.status === "Expired" ? "Expired " : "Expires "}
+                      {new Date(detailTarget.offer_valid_until).toLocaleString()}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -342,6 +357,15 @@ export default function TradeInsPage() {
           </div>
         </div>
       )}
+      {/* Image lightbox */}
+      {lightboxOpen && detailTarget?.images?.length > 0 && (
+        <ImageLightbox
+          images={detailTarget.images}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
     </div>
+
   );
 }

@@ -20,6 +20,7 @@ from app.models.customer import Customer
 from app.models.notification import Notification
 from app.models.email_outbox import EmailOutbox
 from app.services.email_templates import get_email_content
+from app.services.email_service import NOT_CONFIGURED, provider_configured
 
 logger = logging.getLogger(__name__)
 
@@ -86,21 +87,20 @@ def notify(
 {f'<a href="{settings.STORE_BASE_URL.rstrip("/")}{link_path}" style="color:#4D7FFF;">View Details</a>' if link_path else ''}
 </div></body></html>"""
 
+        configured = provider_configured()
         email = EmailOutbox(
             customer_id=customer_id,
             to_email=customer.email,
             subject=subject,
             body_html=body_html,
-            status="Queued",
+            status="Queued" if configured else "Skipped",
+            error_message=None if configured else NOT_CONFIGURED,
         )
         db.add(email)
         db.flush()  # Get the email_id for background task
 
         # 3. Schedule async email sending
-        if background_tasks:
-            # Import here to avoid circular imports at module level
-            from app.services import email_service
-
+        if background_tasks and configured:
             email_id = email.email_id
             background_tasks.add_task(_send_email_background, email_id)
 

@@ -4,12 +4,11 @@ Uses HTTPS API providers (Brevo or SendGrid) as Railway blocks SMTP.
 Suppresses emails to demo/test domains to avoid sending to fake addresses.
 
 Provider selection via EMAIL_PROVIDER setting:
-  - "none":     All emails → Suppressed
+  - "none":     Email delivery is skipped
   - "brevo":    Brevo HTTPS API (POST https://api.brevo.com/v3/smtp/email)
   - "sendgrid": SendGrid HTTPS API (POST https://api.sendgrid.com/v3/mail/send)
 """
 import logging
-from datetime import datetime, timezone
 
 import httpx
 from sqlalchemy.orm import Session
@@ -99,73 +98,52 @@ PROVIDERS = {
 }
 
 
-async def send(db: Session, email_id: int) -> None:
-    """Send a queued email or mark it as Suppressed/Failed.
+NOT_CONFIGURED = "Email provider not configured"
 
-    This function is designed to be called from FastAPI's BackgroundTasks.
-    A failed email NEVER breaks the main action — errors are logged and
-    the email_outbox row is updated with status "Failed".
-    """
-    try:
-        email = db.query(EmailOutbox).filter(
-            EmailOutbox.email_id == email_id,
-        ).first()
 
-        if not email:
-            logger.warning(f"Email #{email_id} not found in outbox")
-            return
+def provider_configured() -> bool:
+    return bool(
+        settings.EMAIL_PROVIDER.strip().lower() in PROVIDERS
+        and settings.EMAIL_API_KEY.strip()
+        and settings.EMAIL_FROM_ADDRESS.strip()
+    )
 
-        if email.status != "Queued":
-            logger.debug(f"Email #{email_id} already processed (status={email.status})")
-            return
 
-        # Check suppression
-        provider = settings.EMAIL_PROVIDER.lower().strip()
-        if provider == "none" or _is_suppressed_address(email.to_email):
-            email.status = "Suppressed"
-            db.commit()
-            logger.info(f"Email #{email_id} to {email.to_email} → Suppressed")
-            return
+async def send(db: Session, email_id: int, *, retry: bool = False) -> str | None:
+    """Claim an outbox row so the worker and manual retries cannot send it together."""
+    statuses = ("Failed", "Skipped") if retry else ("Queued",)
+    email = (
+        db.query(EmailOutbox)
+        .filter(EmailOutbox.email_id == email_id, EmailOutbox.status.in_(statuses))
+        .populate_existing().with_for_update(skip_locked=True).first()
+    )
+    if email is None:
+        return None
 
-        # Check provider
-        send_fn = PROVIDERS.get(provider)
-        if not send_fn:
-            email.status = "Failed"
-            email.error_message = f"Unknown email provider: {provider}"
-            db.commit()
-            logger.error(f"Email #{email_id}: unknown provider '{provider}'")
-            return
-
-        # Check API key
-        if not settings.EMAIL_API_KEY:
-            email.status = "Failed"
-            email.error_message = "EMAIL_API_KEY not configured"
-            db.commit()
-            logger.error(f"Email #{email_id}: EMAIL_API_KEY not set")
-            return
-
-        # Send
-        await send_fn(email.to_email, email.subject, email.body_html)
-
-        email.status = "Sent"
-        email.sent_at = utcnow()
-        db.commit()
-        logger.info(f"Email #{email_id} to {email.to_email} → Sent via {provider}")
-
-    except httpx.HTTPStatusError as exc:
+    email.error_message = None
+    if not provider_configured():
+        email.status = "Skipped"
+        email.error_message = NOT_CONFIGURED
+    elif _is_suppressed_address(email.to_email):
+        email.status = "Suppressed"
+    else:
         try:
+            await PROVIDERS[settings.EMAIL_PROVIDER.strip().lower()](
+                email.to_email, email.subject, email.body_html,
+            )
+        except httpx.HTTPStatusError as exc:
             email.status = "Failed"
             email.error_message = f"HTTP {exc.response.status_code}: {exc.response.text[:500]}"
-            db.commit()
-        except Exception:
-            db.rollback()
-        logger.error(f"Email #{email_id} failed: HTTP {exc.response.status_code}")
-
-    except Exception as exc:
-        try:
+        except Exception as exc:
             email.status = "Failed"
-            email.error_message = str(exc)[:500]
-            db.commit()
-        except Exception:
-            db.rollback()
-        logger.error(f"Email #{email_id} failed: {exc}")
+            email.error_message = str(exc) or type(exc).__name__
+        else:
+            email.status = "Sent"
+            email.sent_at = utcnow()
+
+    if email.status == "Failed":
+        email.error_message = email.error_message.replace(settings.EMAIL_API_KEY, "[redacted]")
+        logger.warning("Email #%s failed: %s", email_id, email.error_message)
+    result = email.status
+    db.commit()
+    return result

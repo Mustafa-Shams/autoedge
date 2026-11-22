@@ -6,8 +6,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEnquiries, updateEnquiry } from '../../api/enquiriesApi';
+import { apiError } from '../../utils/apiError';
+import { hasModuleAccess } from '../../utils/staffAccess';
 import { useAuth } from '../../hooks/useAuth';
-import PageWrapper from '../../components/layout/PageWrapper';
 
 const STATUS_FILTERS = [
   { value: '', label: 'All' },
@@ -25,6 +26,8 @@ const STATUS_BADGE = {
 export default function EnquiriesPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const canReply = hasModuleAccess(user, "enquiries", true);
+  const [error, setError] = useState("");
   const [enquiries, setEnquiries] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -36,14 +39,18 @@ export default function EnquiriesPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      setError("");
       const params = { page, page_size: pageSize };
       if (statusFilter) params.status_filter = statusFilter;
       if (assignedFilter === 'mine') params.assigned_to = user?.user_id;
       const res = await getEnquiries(params);
-      setEnquiries(res.data.items || []);
+      if (!Array.isArray(res.data.items)) throw new Error("Invalid enquiry list response");
+      setEnquiries(res.data.items);
       setTotal(res.data.total || 0);
-    } catch {
+    } catch (err) {
+      setError(apiError(err, "Could not load enquiries."));
       setEnquiries([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -58,15 +65,18 @@ export default function EnquiriesPage() {
     try {
       await updateEnquiry(enquiryId, { assigned_to: user?.user_id });
       fetchData();
-    } catch {
-      // silently handle
+    } catch (err) {
+      setError(apiError(err, "Could not assign enquiry."));
     }
   };
 
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <PageWrapper title="Enquiries" subtitle={`${total} total enquiries`}>
+    <section>
+      <h1 className="text-2xl font-bold text-text-primary">Enquiries</h1>
+      <p className="mb-5 text-sm text-text-secondary">{total} total enquiries</p>
+      {error && <p role="alert" className="mb-4 text-sm text-status-cancelled">{error}</p>}
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="flex gap-2 flex-wrap">
@@ -101,7 +111,7 @@ export default function EnquiriesPage() {
       {/* Table */}
       {loading ? (
         <div className="text-center py-12 text-text-muted text-sm">Loading…</div>
-      ) : enquiries.length === 0 ? (
+      ) : !error && enquiries.length === 0 ? (
         <div className="bg-bg-card border border-bg-border rounded-xl p-12 text-center">
           <p className="text-text-muted text-sm">
             {statusFilter || assignedFilter ? 'No enquiries match your filters.' : 'No enquiries yet.'}
@@ -227,6 +237,6 @@ export default function EnquiriesPage() {
           )}
         </>
       )}
-    </PageWrapper>
+    </section>
   );
 }

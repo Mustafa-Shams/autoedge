@@ -4,7 +4,6 @@ import {
   Bookmark, CalendarCheck, MessageSquare, PackageX, Layers,
 } from "lucide-react";
 import axios from "../../api/axiosInstance";
-import PageWrapper from "../../components/layout/PageWrapper";
 import SalesBarChart from "../../components/charts/SalesBarChart";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import { formatCurrency } from "../../utils/formatters";
@@ -39,10 +38,10 @@ export default function DashboardPage() {
     queryFn: () => axios.get("/api/v1/dashboard/top-staff").then((r) => r.data),
   });
 
-  if (statsLoading) return <PageWrapper><LoadingSpinner /></PageWrapper>;
+  if (statsLoading) return <LoadingSpinner />;
 
   return (
-    <PageWrapper>
+
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-bold text-text-primary">Dashboard</h2>
@@ -141,6 +140,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-    </PageWrapper>
+
   );
 }

@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class VehicleBase(BaseModel):
@@ -22,7 +22,7 @@ class VehicleBase(BaseModel):
 
 class VehicleCreate(VehicleBase):
     # Storefront fields
-    stock_quantity: int = 1
+    stock_quantity: int = Field(1, ge=0)
     description: Optional[str] = None
     main_image_url: Optional[str] = None
     engine: Optional[str] = None
@@ -47,7 +47,7 @@ class VehicleUpdate(BaseModel):
     status: Optional[str] = None
     notes: Optional[str] = None
     # Storefront fields (spec 10.4 / 11.5)
-    stock_quantity: Optional[int] = None
+    stock_quantity: Optional[int] = Field(None, ge=0)
     description: Optional[str] = None
     main_image_url: Optional[str] = None
     engine: Optional[str] = None
@@ -115,6 +115,7 @@ class BulkImageRequest(BaseModel):
 
 
 class VehicleResponse(VehicleBase):
+    active_reservation_count: int = 0
     model_config = ConfigDict(from_attributes=True)
 
     vehicle_id: int

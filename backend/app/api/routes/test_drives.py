@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.models.user import User
 from app.api.deps import get_db, require_role
 from app.crud.crud_test_drive import (
     get_test_drive, get_test_drives, create_test_drive,
@@ -45,6 +46,14 @@ async def book_test_drive(
     _=Depends(ALLOWED),
 ):
     return create_test_drive(db, td_in)
+
+
+@router.get("/sales-staff")
+def list_sales_staff(db: Session = Depends(get_db), _=Depends(ALLOWED)):
+    users = db.query(User.user_id, User.full_name).filter(
+        User.role == "sales_executive", User.is_active.is_(True),
+    ).order_by(User.full_name)
+    return [row._asdict() for row in users]
 
 
 @router.get("/{test_drive_id}", response_model=TestDriveResponse)

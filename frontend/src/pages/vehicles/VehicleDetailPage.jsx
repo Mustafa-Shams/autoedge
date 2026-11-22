@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Edit, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { vehiclesApi } from "../../api/vehiclesApi";
-import PageWrapper from "../../components/layout/PageWrapper";
 import StatusBadge from "../../components/common/StatusBadge";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
@@ -31,8 +30,8 @@ export default function VehicleDetailPage() {
     },
   });
 
-  if (isLoading) return <PageWrapper><LoadingSpinner /></PageWrapper>;
-  if (!vehicle) return <PageWrapper><p className="text-text-muted">Vehicle not found.</p></PageWrapper>;
+  if (isLoading) return <LoadingSpinner />;
+  if (!vehicle) return <p className="text-text-muted">Vehicle not found.</p>;
 
   const canEdit = ["manager", "sales_executive"].includes(role);
   const canDelete = role === "manager";
@@ -53,7 +52,7 @@ export default function VehicleDetailPage() {
   ];
 
   return (
-    <PageWrapper>
+    <>
       <div className="space-y-5 max-w-3xl">
         {/* Back + Actions */}
         <div className="flex items-center justify-between">
@@ -131,7 +130,8 @@ export default function VehicleDetailPage() {
         confirmLabel="Delete"
         danger
       />
-    </PageWrapper>
+
+    </>
   );
 }
 

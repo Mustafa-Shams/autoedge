@@ -6,7 +6,6 @@ import { Bookmark, ArrowRightLeft, Info } from "lucide-react";
 import { salesApi } from "../../api/salesApi";
 import { vehiclesApi } from "../../api/vehiclesApi";
 import { customersApi } from "../../api/customersApi";
-import PageWrapper from "../../components/layout/PageWrapper";
 import { useAuth } from "../../hooks/useAuth";
 import BackButton from "../../components/common/BackButton";
 import { formatCurrency } from "../../utils/formatters";
@@ -22,10 +21,12 @@ export default function SaleFormPage() {
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [selectedTradeIn, setSelectedTradeIn] = useState(null);
 
-  const { data: vehicles = [] } = useQuery({
+  const { data: vehiclePage } = useQuery({
     queryKey: ["vehicles", "for-sale"],
     queryFn: () => vehiclesApi.list({ limit: 200 }),
   });
+
+  const vehicles = vehiclePage?.items ?? [];
 
   const { data: customers = [] } = useQuery({
     queryKey: ["customers-all"],
@@ -93,7 +94,7 @@ export default function SaleFormPage() {
   });
 
   return (
-    <PageWrapper>
+
       <div className="max-w-3xl space-y-5">
         <div className="flex items-center gap-3">
           <BackButton fallback="/sales" label="Back" />
@@ -304,7 +305,7 @@ export default function SaleFormPage() {
           </div>
         </form>
       </div>
-    </PageWrapper>
+
   );
 }
 

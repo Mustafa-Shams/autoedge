@@ -9,7 +9,7 @@ const axiosInstance = axios.create({
 // Request interceptor: attach Bearer token
 axiosInstance.interceptors.request.use((config) => {
   const { token } = authStore.getState();
-  if (token) {
+  if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -19,7 +19,7 @@ axiosInstance.interceptors.request.use((config) => {
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && error.config?.url !== "/api/v1/auth/login") {
       authStore.logout();
       window.location.href = "/login";
     }

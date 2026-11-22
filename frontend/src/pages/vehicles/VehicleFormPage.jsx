@@ -15,7 +15,6 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { vehiclesApi } from "../../api/vehiclesApi";
-import PageWrapper from "../../components/layout/PageWrapper";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import BackButton from "../../components/common/BackButton";
 
@@ -24,7 +23,6 @@ const FUEL_TYPES = ["Petrol", "Diesel", "Electric", "Hybrid"];
 const TRANSMISSIONS = ["Automatic", "Manual"];
 const BODY_TYPES = ["Sedan", "SUV", "Truck", "Hatchback", "Coupe", "Convertible", "Wagon", "Van"];
 const DRIVETRAINS = ["FWD", "RWD", "AWD", "4WD"];
-const STATUSES = ["Available", "Reserved", "Sold"];
 
 const MAX_ADDITIONAL = 8;
 
@@ -204,7 +202,7 @@ export default function VehicleFormPage() {
       ...data,
       price: parseFloat(data.price),
       mileage_km: parseInt(data.mileage_km) || 0,
-      stock_quantity: parseInt(data.stock_quantity) || 1,
+      stock_quantity: Number.isInteger(data.stock_quantity) ? data.stock_quantity : 1,
       horsepower: data.horsepower ? parseInt(data.horsepower) : null,
       seats: data.seats ? parseInt(data.seats) : null,
       year: parseInt(data.year),
@@ -258,10 +256,10 @@ export default function VehicleFormPage() {
     }
   }
 
-  if (isEdit && isLoading) return <PageWrapper><LoadingSpinner /></PageWrapper>;
+  if (isEdit && isLoading) return <LoadingSpinner />;
 
   return (
-    <PageWrapper>
+
       <div className="max-w-3xl space-y-5">
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -328,9 +326,7 @@ export default function VehicleFormPage() {
               </Field>
               {isEdit && (
                 <Field label="Status">
-                  <select {...register("status")} className="input">
-                    {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                  <input readOnly value={existing?.status ?? ""} className="input" />
                 </Field>
               )}
             </div>
@@ -597,7 +593,7 @@ export default function VehicleFormPage() {
           </div>
         </form>
       </div>
-    </PageWrapper>
+
   );
 }
 

@@ -4,6 +4,7 @@ GET  /reservations              — List all reservations (filtered)
 GET  /reservations/{id}         — Single reservation detail
 POST /reservations/{id}/cancel  — Staff cancel with refund (manager only)
 """
+from datetime import timezone
 from typing import Optional
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -16,7 +17,7 @@ from app.models.reservation import Reservation
 from app.models.vehicle import Vehicle
 from app.models.customer import Customer
 from app.models.customer_account import CustomerAccount
-from app.services.reservation_service import cancel_by_staff, ReservationError
+from app.services.reservation_service import cancel_by_staff, sweep_due_reservations, ReservationError
 from app.schemas.store_bank import (
     StaffReservationResponse,
     StaffReservationListResponse,
@@ -47,7 +48,7 @@ def _enrich_staff_reservation(res: Reservation, db: Session) -> StaffReservation
         deposit_amount=res.deposit_amount,
         hold_days=res.hold_days,
         reserved_at=res.reserved_at,
-        expires_at=res.expires_at,
+        expires_at=res.expires_at.replace(tzinfo=timezone.utc),
         status=res.status,
         closed_at=res.closed_at,
         notes=res.notes,
@@ -72,6 +73,8 @@ async def list_reservations(
     db: Session = Depends(get_db),
 ):
     """List all reservations with optional filters."""
+    sweep_due_reservations(db)
+
     page_size = min(page_size, 50)
     if page < 1:
         page = 1
@@ -107,6 +110,8 @@ async def get_reservation(
     db: Session = Depends(get_db),
 ):
     """Get a single reservation detail (staff view)."""
+    sweep_due_reservations(db)
+
     reservation = db.query(Reservation).filter(
         Reservation.reservation_id == reservation_id
     ).first()

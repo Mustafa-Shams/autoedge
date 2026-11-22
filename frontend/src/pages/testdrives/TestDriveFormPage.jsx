@@ -5,8 +5,6 @@ import { useForm } from "react-hook-form";
 import { testDrivesApi } from "../../api/testDrivesApi";
 import { vehiclesApi } from "../../api/vehiclesApi";
 import { customersApi } from "../../api/customersApi";
-import axiosInstance from "../../api/axiosInstance";
-import PageWrapper from "../../components/layout/PageWrapper";
 import BackButton from "../../components/common/BackButton";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 
@@ -38,10 +36,7 @@ export default function TestDriveFormPage() {
   // Fetch sales executives to assign
   const { data: salesStaff = [] } = useQuery({
     queryKey: ["users-sales-executive"],
-    queryFn: () =>
-      axiosInstance
-        .get("/api/v1/users/", { params: { role: "sales_executive", limit: 100 } })
-        .then((r) => r.data),
+    queryFn: testDrivesApi.salesStaff,
   });
 
   const {
@@ -79,13 +74,13 @@ export default function TestDriveFormPage() {
 
   if (isEdit && loadingExisting)
     return (
-      <PageWrapper>
+
         <LoadingSpinner />
-      </PageWrapper>
+
     );
 
   return (
-    <PageWrapper>
+
       <div className="max-w-2xl space-y-5">
         <div className="flex items-center gap-3">
           <BackButton fallback="/test-drives" label="Back" />
@@ -218,7 +213,7 @@ export default function TestDriveFormPage() {
           </div>
         </form>
       </div>
-    </PageWrapper>
+
   );
 }
 

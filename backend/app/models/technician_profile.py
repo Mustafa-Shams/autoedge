@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 
@@ -12,6 +12,11 @@ class TechnicianProfile(Base):
     bio = Column(Text)
     photo_url = Column(Text)
     is_bookable = Column(Boolean, nullable=False, default=True)
+    certifications = Column(Text)  # comma-separated
+    skills = Column(Text)  # comma-separated tags
+    working_days = Column(String(50))  # e.g., "Mon-Fri"
+    working_hours = Column(String(30))  # e.g., "9:00 AM - 5:00 PM"
+    hourly_rate = Column(Numeric(10, 2))
 
     # Relationships
     user = relationship("User", back_populates="technician_profile")

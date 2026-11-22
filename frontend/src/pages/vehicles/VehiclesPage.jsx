@@ -4,10 +4,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Filter, Eye, EyeOff, ChevronLeft, ChevronRight } from "lucide-react";
 import { vehiclesApi } from "../../api/vehiclesApi";
 import { useDebounce } from "../../hooks/useDebounce";
-import PageWrapper from "../../components/layout/PageWrapper";
 import StatusBadge from "../../components/common/StatusBadge";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import EmptyState from "../../components/common/EmptyState";
+import { hasModuleAccess } from "../../utils/staffAccess";
 import { useAuth } from "../../hooks/useAuth";
 import { formatCurrency } from "../../utils/formatters";
 
@@ -16,10 +16,11 @@ const STATUS_OPTIONS = ["", "Available", "Reserved", "Sold"];
 
 export default function VehiclesPage() {
   const navigate = useNavigate();
-  const { role } = useAuth();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [sort, setSort] = useState({ key: "vehicle_id", direction: "asc" });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -27,13 +28,15 @@ export default function VehiclesPage() {
   const debouncedSearch = useDebounce(search, 400);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["vehicles", debouncedSearch, statusFilter, page, pageSize],
+    queryKey: ["vehicles", debouncedSearch, statusFilter, page, pageSize, sort],
     queryFn: () =>
       vehiclesApi.list({
         skip: (page - 1) * pageSize,
         limit: pageSize,
         status: statusFilter || undefined,
-        make: debouncedSearch || undefined,
+        search: debouncedSearch.trim() || undefined,
+        sort: sort.key,
+        direction: sort.direction,
       }),
   });
 
@@ -41,7 +44,7 @@ export default function VehiclesPage() {
   const totalVehicles = data?.total ?? vehicles.length;
   const totalPages = Math.max(1, Math.ceil(totalVehicles / pageSize));
 
-  const canEdit = ["manager", "sales_executive"].includes(role);
+  const canEdit = hasModuleAccess(user, "vehicles", true);
   const canAdd = canEdit;
 
   // Range display
@@ -53,7 +56,7 @@ export default function VehiclesPage() {
     mutationFn: ({ vehicleId, is_published }) =>
       vehiclesApi.update(vehicleId, { is_published }),
     onSuccess: () => {
-      queryClient.invalidateQueries(["vehicles"]);
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] });
     },
   });
 
@@ -108,7 +111,16 @@ export default function VehiclesPage() {
     {
       key: "status",
       label: "Status",
-      render: (val) => <StatusBadge status={val} />,
+      render: (val, vehicle) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge status={val} />
+          {vehicle.active_reservation_count > 0 && (
+            <span className="rounded bg-status-reserved/15 px-2 py-0.5 text-xs text-status-reserved">
+              Reserved: {vehicle.active_reservation_count}
+            </span>
+          )}
+        </div>
+      ),
     },
     ...(canEdit
       ? [
@@ -143,7 +155,7 @@ export default function VehiclesPage() {
   ];
 
   return (
-    <PageWrapper>
+
       <div className="space-y-5">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -172,7 +184,7 @@ export default function VehiclesPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
             <input
               type="text"
-              placeholder="Search by make..."
+              placeholder="Search make, model, year, color or VIN"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -220,7 +232,12 @@ export default function VehiclesPage() {
                         className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wide text-text-muted"
                         style={col.width ? { width: col.width } : {}}
                       >
-                        {col.label}
+                        <button type="button" onClick={() => {
+                          setSort({ key: col.key, direction: sort.key === col.key && sort.direction === "asc" ? "desc" : "asc" });
+                          setPage(1);
+                        }}>
+                          {col.label} {sort.key === col.key && (sort.direction === "asc" ? "↑" : "↓")}
+                        </button>
                       </th>
                     ))}
                   </tr>
@@ -313,6 +330,6 @@ export default function VehiclesPage() {
           </div>
         )}
       </div>
-    </PageWrapper>
+
   );
 }

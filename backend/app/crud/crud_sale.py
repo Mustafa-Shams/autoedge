@@ -29,6 +29,7 @@ from app.models.trade_in_request import TradeInRequest
 from app.models.notification import Notification
 from app.schemas.sale import SaleCreate, SaleUpdate
 from app.services.notify_service import notify
+from app.services.stock_service import get_vehicle_for_update, sync_vehicle_status
 
 
 def _enrich(sale: Sale, db: Session) -> Sale:
@@ -83,7 +84,7 @@ def _handle_completion(db: Session, sale: Sale, obj_in) -> None:
     - Create commission at 2.5%.
     - Create purchase_completed notification.
     """
-    vehicle = db.query(Vehicle).filter(Vehicle.vehicle_id == sale.vehicle_id).first()
+    vehicle = get_vehicle_for_update(db, sale.vehicle_id)
 
     # ── Handle reservation linkage ──
     reservation_id = getattr(obj_in, 'reservation_id', None) or sale.reservation_id
@@ -98,6 +99,8 @@ def _handle_completion(db: Session, sale: Sale, obj_in) -> None:
             raise ValueError(f"Reservation {reservation_id} not found")
         if reservation.status != "Active":
             raise ValueError(f"Reservation {reservation_id} is not Active (status: {reservation.status})")
+        if reservation.expires_at < utcnow():
+            raise ValueError("Reservation has expired")
         if reservation.vehicle_id != sale.vehicle_id:
             raise ValueError("Reservation vehicle does not match sale vehicle")
         if reservation.customer_id != sale.customer_id:
@@ -106,6 +109,8 @@ def _handle_completion(db: Session, sale: Sale, obj_in) -> None:
         # Convert reservation
         reservation.status = "Converted"
         reservation.closed_at = utcnow()
+        db.flush()
+        sync_vehicle_status(db, vehicle)
 
         # Set deposit credit on the sale
         sale.reservation_id = reservation_id
@@ -115,15 +120,10 @@ def _handle_completion(db: Session, sale: Sale, obj_in) -> None:
     else:
         # No reservation — lock vehicle and decrement stock
         if vehicle:
-            locked_vehicle = (
-                db.query(Vehicle)
-                .filter(Vehicle.vehicle_id == vehicle.vehicle_id)
-                .with_for_update()
-                .first()
-            )
-            if locked_vehicle.stock_quantity < 1:
+            if vehicle.stock_quantity < 1:
                 raise ValueError("Vehicle is out of stock")
-            locked_vehicle.stock_quantity -= 1
+            vehicle.stock_quantity -= 1
+            sync_vehicle_status(db, vehicle)
 
             # Write stock movement
             movement = StockMovement(
@@ -134,8 +134,6 @@ def _handle_completion(db: Session, sale: Sale, obj_in) -> None:
                 created_by=sale.staff_id,
             )
             db.add(movement)
-        elif vehicle:
-            vehicle.status = "Sold"
 
     # ── Handle trade-in linkage ──
     trade_in_id = getattr(obj_in, 'trade_in_id', None) or sale.trade_in_id
@@ -202,6 +200,8 @@ def _handle_completion(db: Session, sale: Sale, obj_in) -> None:
 
 
 def create_sale(db: Session, obj_in: SaleCreate) -> Sale:
+    if obj_in.status == "Completed":
+        get_vehicle_for_update(db, obj_in.vehicle_id)
     sale_data = obj_in.model_dump()
     db_sale = Sale(**sale_data)
     db.add(db_sale)
@@ -217,7 +217,7 @@ def create_sale(db: Session, obj_in: SaleCreate) -> Sale:
 
 
 def update_sale(db: Session, sale_id: int, obj_in: SaleUpdate) -> Optional[Sale]:
-    sale = get_sale(db, sale_id)
+    sale = db.query(Sale).filter_by(sale_id=sale_id).with_for_update().first()
     if not sale:
         return None
     data = obj_in.model_dump(exclude_unset=True)

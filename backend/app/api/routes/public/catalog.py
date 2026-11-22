@@ -576,7 +576,7 @@ async def list_technicians(
     query = (
         db.query(TechnicianProfile, User)
         .join(User, TechnicianProfile.user_id == User.user_id)
-        .filter(TechnicianProfile.is_bookable == True, User.is_active == True)
+        .filter(TechnicianProfile.is_bookable.is_(True), User.is_active.is_(True), User.role == "technician")
     )
     if specialty:
         query = query.filter(TechnicianProfile.specialty.ilike(specialty))
@@ -610,9 +610,9 @@ async def get_technician_availability(
     import zoneinfo
 
     # Verify technician exists and is bookable
-    profile = db.query(TechnicianProfile).filter(
+    profile = db.query(TechnicianProfile).join(TechnicianProfile.user).filter(
         TechnicianProfile.user_id == technician_id,
-        TechnicianProfile.is_bookable == True,
+        TechnicianProfile.is_bookable.is_(True), User.is_active.is_(True), User.role == "technician",
     ).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Technician not found")

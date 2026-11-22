@@ -113,8 +113,7 @@ export default function ServiceBookingsStaffPage() {
 
     try {
       // Fetch technicians — filter by required specialty if present
-      const params = { role: 'technician', limit: 100 };
-      const res = await axiosInstance.get('/api/v1/users/', { params });
+      const res = await axiosInstance.get('/api/v1/public/technicians');
       let techs = res.data || [];
 
       // If service type has a required_specialty, filter to matching technicians
@@ -208,7 +207,8 @@ export default function ServiceBookingsStaffPage() {
 
   // ── Render ──────────────────────────────────────────────────────
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+
+    <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -801,5 +801,6 @@ export default function ServiceBookingsStaffPage() {
         </div>
       )}
     </div>
+
   );
 }

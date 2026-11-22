@@ -18,100 +18,99 @@ import {
   LogOut,
   X,
 } from "lucide-react";
+import { hasModuleAccess } from "../../utils/staffAccess";
 import { useAuth } from "../../hooks/useAuth";
 
 const navItems = [
   {
     to: "/dashboard",
+    module: "dashboard",
     label: "Dashboard",
     icon: LayoutDashboard,
-    roles: ["manager"],
   },
   {
     to: "/vehicles",
+    module: "vehicles",
     label: "Vehicles",
     icon: Car,
-    roles: ["manager", "sales_executive", "technician", "receptionist"],
   },
   {
     to: "/customers",
+    module: "customers",
     label: "Customers",
     icon: Users,
-    roles: ["manager", "sales_executive", "receptionist"],
   },
   {
     to: "/test-drives",
+    module: "test_drives",
     label: "Test Drives",
     icon: CalendarCheck,
-    roles: ["manager", "sales_executive", "receptionist"],
   },
   {
     to: "/sales",
+    module: "sales",
     label: "Sales",
     icon: ShoppingCart,
-    roles: ["manager", "sales_executive"],
   },
   {
     to: "/reservations",
+    module: "reservations",
     label: "Reservations",
     icon: Bookmark,
-    roles: ["manager", "sales_executive", "receptionist"],
   },
   {
     to: "/service",
+    module: "service",
     label: "Service",
     icon: Wrench,
-    roles: ["manager", "technician", "receptionist"],
   },
   {
     to: "/service-bookings",
+    module: "service",
     label: "Service Bookings",
     icon: CalendarClock,
-    roles: ["manager", "technician", "receptionist"],
   },
   {
     to: "/commissions",
+    module: "commissions",
     label: "Commissions",
     icon: DollarSign,
-    roles: ["manager", "sales_executive"],
   },
   {
     to: "/trade-ins",
+    module: "trade_ins",
     label: "Trade-Ins",
     icon: ArrowRightLeft,
-    roles: ["manager", "sales_executive"],
   },
   {
     to: "/restock-priority",
+    module: "restock",
     label: "Restock Priority",
     icon: Package,
-    roles: ["manager", "sales_executive"],
   },
   {
     to: "/reviews",
+    module: "reviews",
     label: "Reviews",
     icon: Star,
-    roles: ["manager"],
   },
   {
     to: "/enquiries",
+    module: "enquiries",
     label: "Enquiries",
     icon: MessageSquare,
-    // Per spec 9: manager always, sales_executive/receptionist only if handles_enquiries, technicians never
-    roles: ["manager", "sales_executive", "receptionist"],
-    requiresEnquiryAccess: true,
   },
   {
     to: "/email-log",
+    module: "email_log",
     label: "Email Log",
     icon: Mail,
-    roles: ["manager"],
   },
   {
     to: "/staff",
+    module: "staff",
     label: "Staff",
     icon: UserCog,
-    roles: ["manager"],
   },
 ];
 
@@ -124,14 +123,7 @@ export default function Sidebar({ onClose }) {
     navigate("/login");
   }
 
-  const visibleItems = navItems.filter((item) => {
-    if (!item.roles.includes(role)) return false;
-    // Enquiry access gating: manager always; others only if handles_enquiries
-    if (item.requiresEnquiryAccess && role !== "manager") {
-      return !!user?.handles_enquiries;
-    }
-    return true;
-  });
+  const visibleItems = navItems.filter((item) => hasModuleAccess(user, item.module));
 
   return (
     <aside className="h-screen w-60 bg-bg-card border-r border-bg-border flex flex-col">

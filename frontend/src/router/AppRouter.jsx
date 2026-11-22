@@ -1,5 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import ErrorBoundary from "../components/common/ErrorBoundary";
+import PageWrapper from "../components/layout/PageWrapper";
 import ProtectedRoute from "./ProtectedRoute";
+import { useAuth } from "../hooks/useAuth";
+import { staffHome } from "../utils/staffAccess";
+import ChangePasswordPage from "../pages/auth/ChangePasswordPage";
 import LoginPage from "../pages/auth/LoginPage";
 import DashboardPage from "../pages/dashboard/DashboardPage";
 import VehiclesPage from "../pages/vehicles/VehiclesPage";
@@ -23,262 +28,73 @@ import ServiceBookingsStaffPage from "../pages/servicebookings/ServiceBookingsSt
 import EmailLogPage from "../pages/emaillog/EmailLogPage";
 import ReservationsStaffPage from "../pages/reservations/ReservationsStaffPage";
 import StaffPage from "../pages/staff/StaffPage";
+import StaffDetailPage from "../pages/staff/StaffDetailPage";
+import StaffFormPage from "../pages/staff/StaffFormPage";
+import TechnicianDetailPage from "../pages/staff/TechnicianDetailPage";
 
 const ALL_ROLES = ["manager", "sales_executive", "technician", "receptionist"];
+const MANAGER = ["manager"];
 const MANAGER_SALES = ["manager", "sales_executive"];
 const MANAGER_SALES_RECEP = ["manager", "sales_executive", "receptionist"];
 const MANAGER_TECH_RECEP = ["manager", "technician", "receptionist"];
+
+const staffRoutes = [
+  ["/dashboard", DashboardPage, MANAGER, "dashboard"],
+  ["/vehicles", VehiclesPage, ALL_ROLES, "vehicles"],
+  ["/vehicles/new", VehicleFormPage, MANAGER_SALES, "vehicles", true],
+  ["/vehicles/:id/edit", VehicleFormPage, MANAGER_SALES, "vehicles", true],
+  ["/vehicles/:id", VehicleDetailPage, ALL_ROLES, "vehicles"],
+  ["/customers", CustomersPage, MANAGER_SALES_RECEP, "customers"],
+  ["/customers/new", CustomerFormPage, MANAGER_SALES_RECEP, "customers", true],
+  ["/customers/:id/edit", CustomerFormPage, MANAGER_SALES_RECEP, "customers", true],
+  ["/test-drives", TestDrivesPage, MANAGER_SALES_RECEP, "test_drives"],
+  ["/test-drives/new", TestDriveFormPage, MANAGER_SALES_RECEP, "test_drives", true],
+  ["/test-drives/:id/edit", TestDriveFormPage, MANAGER_SALES_RECEP, "test_drives", true],
+  ["/sales", SalesPage, MANAGER_SALES, "sales"],
+  ["/sales/new", SaleFormPage, MANAGER_SALES, "sales", true],
+  ["/service", ServicePage, MANAGER_TECH_RECEP, "service"],
+  ["/service/new", ServiceFormPage, MANAGER_TECH_RECEP, "service", true],
+  ["/service/:id/edit", ServiceFormPage, ["manager", "technician"], "service", true],
+  ["/commissions", CommissionsPage, MANAGER_SALES, "commissions"],
+  ["/trade-ins", TradeInsStaffPage, MANAGER_SALES, "trade_ins"],
+  ["/restock-priority", RestockPriorityPage, MANAGER_SALES, "restock"],
+  ["/reviews", ReviewModerationPage, MANAGER, "reviews"],
+  ["/service-bookings", ServiceBookingsStaffPage, MANAGER_TECH_RECEP, "service"],
+  ["/enquiries", EnquiriesPage, MANAGER_SALES_RECEP, "enquiries"],
+  ["/enquiries/:id", EnquiryThreadPage, MANAGER_SALES_RECEP, "enquiries"],
+  ["/email-log", EmailLogPage, MANAGER, "email_log"],
+  ["/reservations", ReservationsStaffPage, MANAGER_SALES_RECEP, "reservations"],
+  ["/staff", StaffPage, MANAGER, "staff"],
+  ["/staff/new", StaffFormPage, MANAGER, "staff", true],
+  ["/staff/:id", StaffDetailPage, MANAGER, "staff"],
+  ["/staff/:id/edit", StaffFormPage, MANAGER, "staff", true],
+  ["/staff/technicians/:id", TechnicianDetailPage, MANAGER, "staff"],
+];
+
+function StaffHome() {
+  const { user } = useAuth();
+  return <Navigate to={staffHome(user)} replace />;
+}
 
 export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public */}
-        <Route path="/login" element={<LoginPage />} />
-
-        {/* Root redirect */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-
-        {/* Dashboard — manager only */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={["manager"]}>
-              <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Vehicles — all roles */}
-        <Route
-          path="/vehicles"
-          element={
-            <ProtectedRoute allowedRoles={ALL_ROLES}>
-              <VehiclesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/vehicles/new"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES}>
-              <VehicleFormPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/vehicles/:id/edit"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES}>
-              <VehicleFormPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/vehicles/:id"
-          element={
-            <ProtectedRoute allowedRoles={ALL_ROLES}>
-              <VehicleDetailPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Customers */}
-        <Route
-          path="/customers"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES_RECEP}>
-              <CustomersPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/customers/new"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES_RECEP}>
-              <CustomerFormPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/customers/:id/edit"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES_RECEP}>
-              <CustomerFormPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Test Drives */}
-        <Route
-          path="/test-drives"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES_RECEP}>
-              <TestDrivesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/test-drives/new"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES_RECEP}>
-              <TestDriveFormPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/test-drives/:id/edit"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES_RECEP}>
-              <TestDriveFormPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Sales */}
-        <Route
-          path="/sales"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES}>
-              <SalesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/sales/new"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES}>
-              <SaleFormPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Service */}
-        <Route
-          path="/service"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_TECH_RECEP}>
-              <ServicePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/service/new"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_TECH_RECEP}>
-              <ServiceFormPage />
-            </ProtectedRoute>
-          }
-        />
-        {/* Service edit route — needed for onRowClick in ServicePage */}
-        <Route
-          path="/service/:id/edit"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_TECH_RECEP}>
-              <ServiceFormPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Commissions */}
-        <Route
-          path="/commissions"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES}>
-              <CommissionsPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Trade-ins — manager + sales_executive per spec 7.7 */}
-        <Route
-          path="/trade-ins"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES}>
-              <TradeInsStaffPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Restock Priority — manager + sales_executive per spec 7.4 */}
-        <Route
-          path="/restock-priority"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES}>
-              <RestockPriorityPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Review Moderation — manager only per spec 7.6 */}
-        <Route
-          path="/reviews"
-          element={
-            <ProtectedRoute allowedRoles={["manager"]}>
-              <ReviewModerationPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Service Bookings — manager, receptionist, technician (own) per spec 9.1 */}
-        <Route
-          path="/service-bookings"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_TECH_RECEP}>
-              <ServiceBookingsStaffPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Enquiries — manager always; sales_executive/receptionist if handles_enquiries (gated at API + sidebar) */}
-        <Route
-          path="/enquiries"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES_RECEP}>
-              <EnquiriesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/enquiries/:id"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES_RECEP}>
-              <EnquiryThreadPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Email Log — manager only per spec 9 */}
-        <Route
-          path="/email-log"
-          element={
-            <ProtectedRoute allowedRoles={["manager"]}>
-              <EmailLogPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Reservations — manager, sales_executive, receptionist per spec 11.5 */}
-        <Route
-          path="/reservations"
-          element={
-            <ProtectedRoute allowedRoles={MANAGER_SALES_RECEP}>
-              <ReservationsStaffPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Staff — manager only per spec 11.5 */}
-        <Route
-          path="/staff"
-          element={
-            <ProtectedRoute allowedRoles={["manager"]}>
-              <StaffPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Catch-all */}
+        <Route path="/login" element={<ErrorBoundary><LoginPage /></ErrorBoundary>} />
+        <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
+          <Route path="/change-password" element={<ErrorBoundary><ChangePasswordPage /></ErrorBoundary>} />
+          <Route element={<PageWrapper />}>
+            <Route path="/access-unavailable" element={<h1 className="text-xl text-text-primary">No staff modules are available for your account.</h1>} />
+            <Route path="/" element={<StaffHome />} />
+            {staffRoutes.map(([path, Page, roles, module, write]) => (
+              <Route key={path} path={path} element={
+                <ProtectedRoute allowedRoles={roles} module={module} write={write}>
+                  <Page />
+                </ProtectedRoute>
+              } />
+            ))}
+          </Route>
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

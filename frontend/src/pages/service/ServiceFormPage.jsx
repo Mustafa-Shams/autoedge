@@ -3,10 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { serviceApi } from "../../api/serviceApi";
-import { vehiclesApi } from "../../api/vehiclesApi";
-import { customersApi } from "../../api/customersApi";
-import axiosInstance from "../../api/axiosInstance";
-import PageWrapper from "../../components/layout/PageWrapper";
+import { apiError } from "../../utils/apiError";
 import BackButton from "../../components/common/BackButton";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 
@@ -24,23 +21,11 @@ export default function ServiceFormPage() {
     enabled: isEdit,
   });
 
-  const { data: vehicles = [] } = useQuery({
-    queryKey: ["vehicles", "all"],
-    queryFn: () => vehiclesApi.list({ limit: 200 }),
+  const { data: options, isLoading: loadingOptions, isError: optionsError } = useQuery({
+    queryKey: ["service-form-options"],
+    queryFn: serviceApi.formOptions,
   });
-
-  const { data: customers = [] } = useQuery({
-    queryKey: ["customers-all"],
-    queryFn: () => customersApi.list({ limit: 200 }),
-  });
-
-  const { data: technicians = [] } = useQuery({
-    queryKey: ["users-technicians"],
-    queryFn: () =>
-      axiosInstance
-        .get("/api/v1/users/", { params: { role: "technician", limit: 100 } })
-        .then((r) => r.data),
-  });
+  const { vehicles = [], customers = [], technicians = [] } = options ?? {};
 
   const {
     register,
@@ -64,6 +49,7 @@ export default function ServiceFormPage() {
       isEdit
         ? serviceApi.update(id, {
             ...data,
+            job_date: data.job_date || null,
             technician_id: data.technician_id
               ? parseInt(data.technician_id)
               : null,
@@ -74,6 +60,7 @@ export default function ServiceFormPage() {
           })
         : serviceApi.create({
             ...data,
+            job_date: data.job_date || null,
             vehicle_id: parseInt(data.vehicle_id),
             customer_id: parseInt(data.customer_id),
             technician_id: data.technician_id
@@ -91,13 +78,13 @@ export default function ServiceFormPage() {
 
   if (isEdit && loadingExisting)
     return (
-      <PageWrapper>
+
         <LoadingSpinner />
-      </PageWrapper>
+
     );
 
   return (
-    <PageWrapper>
+
       <div className="max-w-2xl space-y-5">
         <div className="flex items-center gap-3">
           <BackButton fallback="/service" label="Back" />
@@ -106,8 +93,10 @@ export default function ServiceFormPage() {
           </h2>
         </div>
 
+        {optionsError && <p role="alert" className="text-status-cancelled">Could not load service job options.</p>}
+        {loadingOptions && <LoadingSpinner />}
         <form
-          onSubmit={handleSubmit((d) => mutation.mutateAsync(d))}
+          onSubmit={handleSubmit((d) => mutation.mutate(d))}
           className="bg-bg-card border border-bg-border rounded-xl p-6 space-y-4"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -217,7 +206,7 @@ export default function ServiceFormPage() {
 
           {mutation.isError && (
             <p className="text-sm text-status-cancelled">
-              {mutation.error?.response?.data?.detail ?? "An error occurred."}
+              {apiError(mutation.error, "Could not save the service job.")}
             </p>
           )}
 
@@ -231,7 +220,7 @@ export default function ServiceFormPage() {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || mutation.isPending}
+              disabled={isSubmitting || mutation.isPending || loadingOptions || optionsError}
               className="px-4 py-2 rounded-lg text-sm font-medium bg-accent-blue hover:bg-accent-blueHover text-white disabled:opacity-60"
             >
               {isSubmitting || mutation.isPending
@@ -243,7 +232,7 @@ export default function ServiceFormPage() {
           </div>
         </form>
       </div>
-    </PageWrapper>
+
   );
 }
 

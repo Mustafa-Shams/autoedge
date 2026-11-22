@@ -1,4 +1,51 @@
-# HANDOFF — AutoEdge Storefront
+# HANDOFF — AutoEdge
+
+## Staff portal follow-up
+
+Updated 2026-11-22 PKT. The staff-portal changes are local. See decisions 24–33 for the original causes, access rules, and rollout.
+
+| Area | Completed work |
+|---|---|
+| A. Layout and service jobs | All protected staff routes share the sidebar and top bar. Forms and detail dialogs use Back. Route rendering failures get a recoverable panel. The service form loads real vehicle, customer, and technician summaries from the backend. |
+| B. Vehicle inventory | Server-side multi-word search, stable sorting, existing page size, and a Reserved filter and Reserved: N badge based on unexpired active holds. |
+| C. Reservations | Startup and three-minute worker, lazy expiry, committed stock and refund ledgers, notification, and elapsed-deadline labels. |
+| D. Customers | Storefront-enabled customer creation, password setup or reset, and manager deactivation or history-protected deletion. |
+| E. Trade-ins | Scrollable details, interactive photo lightbox, and offer status, amount, and expiry. |
+| F. Reviews | Full review dialog and Hide/Show. |
+| G. Enquiries | Correct staff API paths, visible request errors, complete thread, and working reply. Managers see all. Eligible flagged staff see all with their configured module permissions. |
+| H. Email log | Skipped status, provider banner, error expansion, and manager retry. |
+| I. Staff | Add, edit, activity, enquiry switch, password reset with forced change, and deactivation or history-protected deletion. Technician profiles include skills, working days and hours, rate, photo preview, and upcoming bookings. |
+
+### Local verification
+
+- The complete backend suite passed all 144 tests with seven warnings. It includes 16 new staff-portal regression cases. Windows installs now declare the IANA time-zone data used for technician booking dates.
+- Headless Chrome signed in to the local production build and verified the sidebar, header, and title on all nine reported pages. It created a service job with PostgreSQL-backed vehicle, customer, and technician choices, checked the Reserved badge, moderated a review, and exercised the trade-in photo viewer. A deliberately malformed form response produced the Back/Reload panel, and sidebar navigation recovered.
+- PostgreSQL upgrade through 0004 and 0005, known missing-provider failure conversion, downgrade to 0004, and re-upgrade passed.
+- Two concurrent local PostgreSQL expiry transactions refunded 90% once, wrote one movement and notification, and restored stock. The vehicle status trigger stayed in use.
+- The same local PostgreSQL installation served the service form's dropdown data and accepted a service job with real IDs.
+- The frontend and storefront production builds passed. Staff frontend lint reported no errors. Vite reported the existing staff bundle-size warning.
+
+### Owner deployment
+
+Run the following from the repository root in PowerShell with the intended Neon database URL configured for the backend. Apply the migration before deploying the backend and staff portal.
+
+```powershell
+Set-Location backend
+.\venv\Scripts\python.exe -m alembic upgrade 0005_staff_portal
+.\venv\Scripts\python.exe -m alembic current
+```
+
+The expected revision is 0005_staff_portal. It adds staff access and session fields, technician profile fields, customer status, an active-reservation lookup index, and the Skipped email status. The email error_message column already existed. Migration 0003's older test-drive constraint lookup was corrected for fresh installs.
+
+No new Railway variables are required. Optional email delivery uses EMAIL_PROVIDER (brevo or sendgrid), EMAIL_API_KEY, and EMAIL_FROM_ADDRESS. When configured, EMAIL_FROM_NAME and EMAIL_SUPPRESS_DOMAINS retain their existing behavior.
+
+The original local Staff and Commissions pages already mounted PageWrapper. The shared route layout now covers both, and the cause of their earlier deployed appearance could not be reproduced locally.
+
+The deployed manager session, the reported production rows, and live email provider delivery remain unverified. Local testing used only throwaway data.
+
+---
+
+## Storefront handoff from 2026-11-21
 Last updated: 2026-11-21 20:20 PKT by Antigravity session
 Current phase: Post-P48 hotfix — status: COMPLETE
 

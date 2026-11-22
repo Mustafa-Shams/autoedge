@@ -4,7 +4,7 @@ GET  /trade-ins              — list all trade-ins with filters [manager, sales
 GET  /trade-ins/{id}         — detail with images
 PUT  /trade-ins/{id}         — update status/offered_value/staff_notes [manager, sales_executive]
 """
-from datetime import timedelta
+from datetime import timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 
@@ -76,7 +76,7 @@ def _to_staff_response(t: TradeInRequest, customer: Customer = None) -> dict:
         "indicative_high": float(t.indicative_high) if t.indicative_high else None,
         "status": t.status,
         "offered_value": float(t.offered_value) if t.offered_value else None,
-        "offer_valid_until": t.offer_valid_until.isoformat() if t.offer_valid_until else None,
+        "offer_valid_until": t.offer_valid_until.replace(tzinfo=timezone.utc).isoformat() if t.offer_valid_until else None,
         "staff_notes": t.staff_notes,
         "appraised_by": t.appraised_by,
         "created_at": t.created_at.isoformat() if t.created_at else None,

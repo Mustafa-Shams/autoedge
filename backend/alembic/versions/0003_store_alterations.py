@@ -51,7 +51,10 @@ def upgrade() -> None:
             SELECT conname INTO cname
             FROM pg_constraint
             WHERE conrelid = 'test_drives'::regclass AND contype = 'c'
-              AND pg_get_constraintdef(oid) ILIKE '%status%';
+              AND conkey = ARRAY[
+                  (SELECT attnum FROM pg_attribute
+                   WHERE attrelid = 'test_drives'::regclass AND attname = 'status')
+              ];
             IF cname IS NOT NULL THEN
                 EXECUTE 'ALTER TABLE test_drives DROP CONSTRAINT ' || quote_ident(cname);
             END IF;

@@ -6,8 +6,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getEnquiry, replyToEnquiry, updateEnquiry } from '../../api/enquiriesApi';
+import { hasModuleAccess } from "../../utils/staffAccess";
 import { useAuth } from '../../hooks/useAuth';
-import PageWrapper from '../../components/layout/PageWrapper';
 import BackButton from '../../components/common/BackButton';
 
 const STATUS_BADGE = {
@@ -20,6 +20,7 @@ export default function EnquiryThreadPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const canReply = hasModuleAccess(user, "enquiries", true);
   const [enquiry, setEnquiry] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -95,36 +96,33 @@ export default function EnquiryThreadPage() {
 
   if (loading) {
     return (
-      <PageWrapper title="Enquiry Thread">
+      <section>
         <div className="text-center py-12 text-text-muted text-sm">Loading…</div>
-      </PageWrapper>
+      </section>
     );
   }
 
   if (error || !enquiry) {
     return (
-      <PageWrapper title="Enquiry Thread">
+      <section>
         <div className="bg-bg-card border border-bg-border rounded-xl p-12 text-center">
           <p className="text-text-muted text-sm mb-4">{error || 'Enquiry not found.'}</p>
           <BackButton fallback="/enquiries" label="Back to enquiries" />
         </div>
-      </PageWrapper>
+      </section>
     );
   }
 
   return (
-    <PageWrapper
-      title={
-        <div className="flex items-center gap-3 flex-wrap">
+    <section>
+        <div className="mb-5 flex items-center gap-3 flex-wrap">
           <BackButton fallback="/enquiries" label="Back" />
           <span className="text-text-muted">/</span>
-          <span className="truncate max-w-[300px]">{enquiry.subject}</span>
+          <h1 className="text-2xl font-bold text-text-primary">{enquiry.subject}</h1>
           <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full ${STATUS_BADGE[enquiry.status] || ''}`}>
             {enquiry.status}
           </span>
         </div>
-      }
-    >
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left column — Thread */}
         <div className="lg:col-span-3 space-y-4">
@@ -162,8 +160,7 @@ export default function EnquiryThreadPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Reply box */}
-          <div className="bg-bg-card border border-bg-border rounded-xl p-4">
+          {canReply && <div className="bg-bg-card border border-bg-border rounded-xl p-4">
             <form onSubmit={handleReply} className="space-y-3">
               <textarea
                 value={replyText}
@@ -188,7 +185,7 @@ export default function EnquiryThreadPage() {
                 </button>
               </div>
             </form>
-          </div>
+          </div>}
         </div>
 
         {/* Right column — Info panel */}
@@ -232,6 +229,7 @@ export default function EnquiryThreadPage() {
               <div>
                 <p className="text-xs text-text-muted mb-2">Unassigned</p>
                 <button
+                  disabled={!canReply}
                   onClick={handleAssignToMe}
                   className="px-3 py-1.5 text-xs font-medium text-accent-blue bg-accent-blue/10 hover:bg-accent-blue/20 rounded-lg transition-colors"
                 >
@@ -241,8 +239,7 @@ export default function EnquiryThreadPage() {
             )}
           </div>
 
-          {/* Status actions */}
-          <div className="bg-bg-card border border-bg-border rounded-xl p-4">
+          {canReply && <div className="bg-bg-card border border-bg-border rounded-xl p-4">
             <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Actions</h3>
             <div className="space-y-2">
               {enquiry.status !== 'Closed' && (
@@ -262,7 +259,7 @@ export default function EnquiryThreadPage() {
                 </button>
               )}
             </div>
-          </div>
+          </div>}
 
           {/* Metadata */}
           <div className="bg-bg-card border border-bg-border rounded-xl p-4">
@@ -292,6 +289,6 @@ export default function EnquiryThreadPage() {
           </div>
         </div>
       </div>
-    </PageWrapper>
+    </section>
   );
 }

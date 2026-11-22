@@ -6,6 +6,7 @@ GET  /store/reservations/{id}        — Single reservation detail
 GET  /store/reservations/{id}/receipt — Receipt data
 POST /store/reservations/{id}/cancel — Cancel with refund
 """
+from datetime import timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
@@ -21,7 +22,7 @@ from app.services.reservation_service import (
     cancel,
     ReservationError,
     get_receipt_data,
-    expire_stale,
+    sweep_due_reservations,
 )
 from app.core.config import settings
 from app.schemas.store_bank import (
@@ -48,7 +49,7 @@ def _enrich_reservation(res: Reservation, db: Session) -> ReservationResponse:
         deposit_amount=res.deposit_amount,
         hold_days=res.hold_days,
         reserved_at=res.reserved_at,
-        expires_at=res.expires_at,
+        expires_at=res.expires_at.replace(tzinfo=timezone.utc),
         status=res.status,
         closed_at=res.closed_at,
         notes=res.notes,
@@ -71,6 +72,7 @@ async def create_reservation(
     Full transactional flow with password confirmation,
     idempotency key, row locking, and stock/bank ledger entries.
     """
+    sweep_due_reservations(db)
     try:
         reservation = reserve(
             db,
@@ -105,11 +107,9 @@ async def list_reservations(
 ):
     """List the customer's reservations with optional status filter.
 
-    Also runs expire_stale() to keep statuses current.
+    Also runs sweep_due_reservations() to keep statuses current.
     """
-    # Run expiry sweep
-    expire_stale(db)
-    db.commit()
+    sweep_due_reservations(db)
 
     page_size = min(page_size, 50)
     if page < 1:
@@ -144,6 +144,7 @@ async def get_reservation(
     db: Session = Depends(get_db),
 ):
     """Get a single reservation detail (owned by current customer)."""
+    sweep_due_reservations(db)
     reservation = db.query(Reservation).filter(
         Reservation.reservation_id == reservation_id,
         Reservation.customer_id == account.customer_id,
@@ -165,6 +166,7 @@ async def get_reservation_receipt(
     db: Session = Depends(get_db),
 ):
     """Get receipt data for a reservation."""
+    sweep_due_reservations(db)
     data = get_receipt_data(db, account.customer_id, reservation_id)
 
     if data is None:
@@ -197,7 +199,7 @@ async def get_reservation_receipt(
         deposit_amount=res.deposit_amount,
         hold_days=res.hold_days,
         reserved_at=res.reserved_at,
-        expires_at=res.expires_at,
+        expires_at=res.expires_at.replace(tzinfo=timezone.utc),
         reference_code=dep_txn.reference_code if dep_txn else None,
         amount_charged=dep_txn.amount if dep_txn else None,
         balance_after_charge=dep_txn.balance_after if dep_txn else None,

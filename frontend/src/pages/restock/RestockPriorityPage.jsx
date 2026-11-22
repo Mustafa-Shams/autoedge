@@ -90,7 +90,8 @@ export default function RestockPriorityPage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+
+    <div className="max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -313,5 +314,6 @@ export default function RestockPriorityPage() {
         </div>
       )}
     </div>
+
   );
 }

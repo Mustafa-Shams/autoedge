@@ -111,7 +111,8 @@ def _enquiry_to_dict(e: Enquiry) -> dict:
 # ── Routes ───────────────────────────────────────────────────────────
 
 
-@router.get("/")
+@router.get("")
+@router.get("/", include_in_schema=False)
 async def list_enquiries(
     status_filter: Optional[str] = None,
     assigned_to: Optional[int] = None,

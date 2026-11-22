@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Car, Eye, EyeOff } from "lucide-react";
 import axiosInstance from "../../api/axiosInstance";
+import { staffHome } from "../../utils/staffAccess";
 import { authStore } from "../../store/authStore";
 
 export default function LoginPage() {
@@ -37,12 +38,7 @@ export default function LoginPage() {
 
       authStore.login(access_token, { ...meRes.data, role });
 
-      // Redirect based on role
-      if (role === "manager") {
-        navigate("/dashboard");
-      } else {
-        navigate("/vehicles");
-      }
+      navigate(meRes.data.must_change_password ? "/change-password" : staffHome(meRes.data), { replace: true });
     } catch (err) {
       // Always show a clear, user-friendly message — never leak server internals
       const status = err.response?.status;

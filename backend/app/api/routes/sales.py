@@ -9,6 +9,7 @@ from app.schemas.sale import SaleCreate, SaleUpdate, SaleResponse, SaleStats
 from app.models.reservation import Reservation
 from app.models.trade_in_request import TradeInRequest
 from app.models.vehicle import Vehicle
+from app.core.time import utcnow
 
 router = APIRouter(prefix="/sales", tags=["sales"])
 
@@ -88,6 +89,7 @@ async def get_customer_credits(
         .filter(
             Reservation.customer_id == customer_id,
             Reservation.status == "Active",
+            Reservation.expires_at >= utcnow(),
         )
         .all()
     )

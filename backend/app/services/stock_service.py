@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
 from app.models.vehicle import Vehicle
+from app.models.reservation import Reservation
 from app.models.stock_movement import StockMovement
 from app.models.restock_request import RestockRequest
 from app.services.notify_service import notify
@@ -22,6 +23,17 @@ def get_vehicle_for_update(db: Session, vehicle_id: int) -> Optional[Vehicle]:
         .with_for_update()
         .first()
     )
+
+
+def sync_vehicle_status(db: Session, vehicle: Vehicle) -> None:
+    """Mirror fn_sync_vehicle_status when a hold changes without a stock update."""
+    if vehicle.stock_quantity > 0:
+        vehicle.status = "Available"
+        return
+    active = db.query(Reservation.reservation_id).filter_by(
+        vehicle_id=vehicle.vehicle_id, status="Active",
+    ).first()
+    vehicle.status = "Reserved" if active else "Sold"
 
 
 def change_stock(

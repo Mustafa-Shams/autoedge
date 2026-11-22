@@ -130,9 +130,9 @@ def book_service(
 
     # 7. If technician specified, validate and check slot availability
     if technician_id:
-        profile = db.query(TechnicianProfile).filter(
+        profile = db.query(TechnicianProfile).join(TechnicianProfile.user).filter(
             TechnicianProfile.user_id == technician_id,
-            TechnicianProfile.is_bookable == True,
+            TechnicianProfile.is_bookable.is_(True), User.is_active.is_(True), User.role == "technician",
         ).first()
         if not profile:
             raise ServiceBookingError("Technician not found or unavailable", 404)
@@ -357,8 +357,9 @@ def confirm_booking(
         )
 
     # Validate technician
-    profile = db.query(TechnicianProfile).filter(
+    profile = db.query(TechnicianProfile).join(TechnicianProfile.user).filter(
         TechnicianProfile.user_id == technician_id,
+        TechnicianProfile.is_bookable.is_(True), User.is_active.is_(True), User.role == "technician",
     ).first()
     if not profile:
         raise ServiceBookingError("Technician not found", 404)

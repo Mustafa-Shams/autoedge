@@ -1,10 +1,30 @@
-import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import { authApi } from "../../api/authApi";
+import { authStore } from "../../store/authStore";
+import ErrorBoundary from "../common/ErrorBoundary";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
-export default function PageWrapper({ children }) {
+export default function PageWrapper() {
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    function refreshSession() {
+      const { token } = authStore.getState();
+      authApi.me().then((user) => {
+        if (active && authStore.getState().token === token) authStore.login(token, user);
+      }).catch(() => {});
+    }
+    refreshSession();
+    window.addEventListener("focus", refreshSession);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", refreshSession);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-bg-primary">
@@ -30,7 +50,7 @@ export default function PageWrapper({ children }) {
 
       {/* Main content */}
       <main className="lg:ml-60 pt-16 min-h-screen">
-        <div className="p-4 sm:p-6">{children}</div>
+        <div className="p-4 sm:p-6"><ErrorBoundary key={location.key}><Outlet /></ErrorBoundary></div>
       </main>
     </div>
   );

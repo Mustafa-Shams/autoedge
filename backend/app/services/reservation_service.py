@@ -11,7 +11,6 @@ from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional, Tuple
 
-from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -49,7 +48,6 @@ def reserve(
     """Reserve a car per spec 7.2.
 
     Full transactional flow:
-    1. Run expire_stale() first (cheap)
     2. Verify customer password
     3. Check idempotency key
     4. BEGIN transaction:
@@ -63,9 +61,6 @@ def reserve(
     5. COMMIT
     6. Create notification (after commit via caller's BackgroundTasks)
     """
-    # 1. Run expiry sweep first
-    expire_stale(db)
-
     # 2. Verify customer password
     account = db.query(CustomerAccount).filter(
         CustomerAccount.customer_id == customer_id
@@ -222,76 +217,34 @@ def cancel(
     customer_id: int,
     reservation_id: int,
 ) -> Reservation:
-    """Cancel an active reservation per spec 7.2.
-
-    Lock order: reservation → vehicle → bank_account.
-    Refund = deposit * (100 - CANCELLATION_FEE_PERCENT) / 100.
-    """
-    # Lock reservation
-    reservation = (
-        db.query(Reservation)
-        .filter(
-            Reservation.reservation_id == reservation_id,
-            Reservation.customer_id == customer_id,
-        )
-        .with_for_update()
-        .first()
-    )
-    if reservation is None:
-        raise ReservationError("Reservation not found", 404)
-    if reservation.status != "Active":
-        raise ReservationError(
-            f"Cannot cancel a reservation with status '{reservation.status}'", 409
-        )
-
-    # Lock vehicle (in lock order)
-    vehicle = (
-        db.query(Vehicle)
-        .filter(Vehicle.vehicle_id == reservation.vehicle_id)
-        .with_for_update()
-        .first()
-    )
-
-    # Lock bank account (last in lock order)
-    bank_acct = (
-        db.query(BankAccount)
-        .filter(BankAccount.customer_id == customer_id)
-        .with_for_update()
-        .first()
-    )
-
-    return _close_reservation(
-        db, reservation, vehicle, bank_acct, "Cancelled", "Reservation Cancelled"
-    )
+    """Cancel an active reservation owned by the customer."""
+    return _cancel_reservation(db, reservation_id, customer_id)
 
 
-def cancel_by_staff(
-    db: Session,
-    reservation_id: int,
+def cancel_by_staff(db: Session, reservation_id: int) -> Reservation:
+    """Cancel a reservation by staff (manager only)."""
+    return _cancel_reservation(db, reservation_id)
+
+
+def _cancel_reservation(
+    db: Session, reservation_id: int, customer_id: Optional[int] = None,
 ) -> Reservation:
-    """Cancel a reservation by staff (manager only) per spec 10.4.
+    sweep_due_reservations(db)
+    query = db.query(Reservation).filter(Reservation.reservation_id == reservation_id)
+    if customer_id is not None:
+        query = query.filter(Reservation.customer_id == customer_id)
 
-    Same refund rules as customer cancel.
-    """
-    reservation = (
-        db.query(Reservation)
-        .filter(Reservation.reservation_id == reservation_id)
-        .with_for_update()
-        .first()
-    )
+    vehicle_id = query.with_entities(Reservation.vehicle_id).scalar()
+    if vehicle_id is None:
+        raise ReservationError("Reservation not found", 404)
+    vehicle = stock_service.get_vehicle_for_update(db, vehicle_id)
+    reservation = query.populate_existing().with_for_update().first()
     if reservation is None:
         raise ReservationError("Reservation not found", 404)
     if reservation.status != "Active":
         raise ReservationError(
             f"Cannot cancel a reservation with status '{reservation.status}'", 409
         )
-
-    vehicle = (
-        db.query(Vehicle)
-        .filter(Vehicle.vehicle_id == reservation.vehicle_id)
-        .with_for_update()
-        .first()
-    )
     bank_acct = (
         db.query(BankAccount)
         .filter(BankAccount.customer_id == reservation.customer_id)
@@ -304,44 +257,52 @@ def cancel_by_staff(
     )
 
 
-def expire_stale(db: Session) -> int:
-    """Expire all past-due reservations, test drives, and trade-in offers.
-
-    Uses FOR UPDATE SKIP LOCKED so concurrent sweeps don't collide.
-    Returns the number of reservations expired.
-    """
-    now = utcnow()
-    expired_count = 0
-
-    # ── Expire reservations ──
-    stale_reservations = (
-        db.query(Reservation)
-        .filter(
-            Reservation.status == "Active",
-            Reservation.expires_at <= now,
-        )
-        .with_for_update(skip_locked=True)
-        .all()
+def expire_reservations(db: Session, *, skip_locked: bool = False) -> int:
+    """Release due holds in vehicle → reservation → bank-account lock order."""
+    due = db.query(Reservation).filter(
+        Reservation.status == "Active", Reservation.expires_at < utcnow(),
     )
+    vehicle_ids = [row.vehicle_id for row in due.with_entities(Reservation.vehicle_id).distinct()]
+    if not vehicle_ids:
+        return 0
 
-    for reservation in stale_reservations:
-        vehicle = (
-            db.query(Vehicle)
-            .filter(Vehicle.vehicle_id == reservation.vehicle_id)
-            .with_for_update()
-            .first()
-        )
-        bank_acct = (
-            db.query(BankAccount)
-            .filter(BankAccount.customer_id == reservation.customer_id)
-            .with_for_update()
-            .first()
-        )
+    vehicles = {
+        vehicle.vehicle_id: vehicle for vehicle in
+        db.query(Vehicle).filter(Vehicle.vehicle_id.in_(vehicle_ids))
+        .order_by(Vehicle.vehicle_id).populate_existing().with_for_update(skip_locked=skip_locked)
+    }
+    reservations = (
+        due.filter(Reservation.vehicle_id.in_(vehicles))
+        .order_by(Reservation.reservation_id)
+        .populate_existing().with_for_update(skip_locked=skip_locked).all()
+    )
+    if not reservations:
+        return 0
 
+    banks = {
+        account.customer_id: account for account in
+        db.query(BankAccount)
+        .filter(BankAccount.customer_id.in_({r.customer_id for r in reservations}))
+        .order_by(BankAccount.bank_account_id).populate_existing().with_for_update()
+    }
+    for reservation in reservations:
         _close_reservation(
-            db, reservation, vehicle, bank_acct, "Expired", "Reservation Expired"
+            db, reservation, vehicles[reservation.vehicle_id], banks.get(reservation.customer_id),
+            "Expired", "Reservation Expired",
         )
-        expired_count += 1
+    return len(reservations)
+
+
+def sweep_due_reservations(db: Session) -> None:
+    """Commit expiry before reading reservations or starting another write."""
+    expire_reservations(db)
+    db.commit()
+
+
+def expire_stale(db: Session) -> int:
+    """Background sweep for reservations, test drives, and trade-in offers."""
+    now = utcnow()
+    expired_count = expire_reservations(db, skip_locked=True)
 
     # ── Expire test drive requests (past 48h or past slot time) ──
     stale_test_drives = (
@@ -391,7 +352,7 @@ def expire_stale(db: Session) -> int:
             vehicle_label=f"{ti.year} {ti.make} {ti.model}" if hasattr(ti, 'make') else "your vehicle",
         )
 
-    if stale_reservations or stale_test_drives or stale_trade_ins:
+    if stale_test_drives or stale_trade_ins:
         db.flush()
 
     return expired_count
@@ -462,6 +423,9 @@ def _close_reservation(
         reservation.deposit_amount * (100 - fee_percent) / 100
     ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     fee_amount = reservation.deposit_amount - refund_amount
+
+    if refund_amount > 0 and bank_acct is None:
+        raise ReservationError("Reservation refund requires a customer bank account", 409)
 
     # Update reservation status
     reservation.status = new_status

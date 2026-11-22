@@ -1,10 +1,13 @@
+import BackButton from "../../components/common/BackButton";
 /**
  * ReviewModerationPage — staff page for managers to view and moderate customer reviews.
  * Spec 7.6, 10.4 — manager can toggle is_visible on reviews.
+ * Decision #24: Clicking a row opens a detail modal with full review text.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { getReviews, setReviewVisibility } from '../../api/reviewsApi';
-import { Star, Eye, EyeOff, RefreshCw, Filter, AlertTriangle } from 'lucide-react';
+import { apiError } from '../../utils/apiError';
+import { Star, Eye, EyeOff, RefreshCw, Filter, AlertTriangle, X, Car, User, Calendar } from 'lucide-react';
 
 export default function ReviewModerationPage() {
   const [reviews, setReviews] = useState([]);
@@ -18,6 +21,9 @@ export default function ReviewModerationPage() {
   const [visibilityFilter, setVisibilityFilter] = useState(''); // '' | 'true' | 'false'
   const [ratingFilter, setRatingFilter] = useState(''); // '' | '1'-'5'
   const [togglingId, setTogglingId] = useState(null);
+
+  // Detail modal
+  const [selectedReview, setSelectedReview] = useState(null);
 
   const fetchReviews = useCallback(async () => {
     try {
@@ -45,8 +51,12 @@ export default function ReviewModerationPage() {
       setTogglingId(reviewId);
       await setReviewVisibility(reviewId, { is_visible: !currentVisible });
       await fetchReviews();
-    } catch {
-      // silently fail
+      // Also update selected review if open
+      if (selectedReview?.review_id === reviewId) {
+        setSelectedReview((prev) => ({ ...prev, is_visible: !currentVisible }));
+      }
+    } catch (err) {
+      setError(apiError(err, 'Could not update review visibility.'));
     } finally {
       setTogglingId(null);
     }
@@ -61,13 +71,13 @@ export default function ReviewModerationPage() {
     });
   };
 
-  const renderStars = (rating) => {
+  const renderStars = (rating, size = 'w-3.5 h-3.5') => {
     return (
       <div className="flex items-center gap-0.5">
         {[1, 2, 3, 4, 5].map((s) => (
           <svg
             key={s}
-            className={`w-3.5 h-3.5 ${s <= rating ? 'text-status-reserved fill-status-reserved' : 'text-bg-border'}`}
+            className={`${size} ${s <= rating ? 'text-status-reserved fill-status-reserved' : 'text-bg-border'}`}
             viewBox="0 0 24 24"
             fill={s <= rating ? 'currentColor' : 'none'}
             stroke="currentColor"
@@ -81,7 +91,8 @@ export default function ReviewModerationPage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+
+    <div className="max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -176,7 +187,11 @@ export default function ReviewModerationPage() {
               </thead>
               <tbody className="divide-y divide-bg-border">
                 {reviews.map((review) => (
-                  <tr key={review.review_id} className="hover:bg-bg-elevated/50 transition-colors">
+                  <tr
+                    key={review.review_id}
+                    className="hover:bg-bg-elevated/50 transition-colors cursor-pointer"
+                    onClick={() => setSelectedReview(review)}
+                  >
                     <td className="px-5 py-4">
                       <span className="text-sm font-medium text-text-primary">
                         {review.vehicle_label || `#${review.vehicle_id}`}
@@ -215,7 +230,7 @@ export default function ReviewModerationPage() {
                     </td>
                     <td className="px-5 py-4 text-right">
                       <button
-                        onClick={() => handleToggleVisibility(review.review_id, review.is_visible)}
+                        onClick={(e) => { e.stopPropagation(); handleToggleVisibility(review.review_id, review.is_visible); }}
                         disabled={togglingId === review.review_id}
                         className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-40 ${
                           review.is_visible
@@ -264,6 +279,104 @@ export default function ReviewModerationPage() {
           )}
         </div>
       )}
+
+      {/* Detail Modal */}
+      {selectedReview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedReview(null)} />
+          <div role="dialog" aria-modal="true" aria-label="Review details" className="relative bg-bg-card border border-bg-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-bg-border sticky top-0 bg-bg-card z-10">
+              <div className="flex items-center gap-3">
+                <Star className="w-5 h-5 text-accent-blue" />
+                <h2 className="text-lg font-bold text-text-primary">Review Detail</h2>
+                <BackButton onClick={() => setSelectedReview(null)} />
+              </div>
+              <button
+                aria-label="Close review details"
+                onClick={() => setSelectedReview(null)}
+                className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Rating */}
+              <div className="flex items-center gap-3">
+                {renderStars(selectedReview.rating, 'w-5 h-5')}
+                <span className="text-sm text-text-secondary font-medium">{selectedReview.rating}/5</span>
+                {selectedReview.is_visible ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-status-available/10 text-status-available text-xs font-medium rounded-full ml-auto">
+                    <Eye className="w-3 h-3" /> Visible
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-status-cancelled/10 text-status-cancelled text-xs font-medium rounded-full ml-auto">
+                    <EyeOff className="w-3 h-3" /> Hidden
+                  </span>
+                )}
+              </div>
+
+              {/* Title & Body */}
+              {selectedReview.title && (
+                <h3 className="text-base font-semibold text-text-primary">{selectedReview.title}</h3>
+              )}
+              <div className="bg-bg-elevated rounded-xl p-4">
+                <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
+                  {selectedReview.body}
+                </p>
+              </div>
+
+              {/* Vehicle */}
+              <div className="bg-bg-elevated rounded-xl p-4">
+                <div className="flex items-center gap-2 text-text-muted text-xs font-medium uppercase tracking-wider mb-2">
+                  <Car className="w-3.5 h-3.5" /> Vehicle
+                </div>
+                <p className="text-sm text-text-primary font-medium">
+                  {selectedReview.vehicle_label || `Vehicle #${selectedReview.vehicle_id}`}
+                </p>
+              </div>
+
+              {/* Customer */}
+              <div className="bg-bg-elevated rounded-xl p-4">
+                <div className="flex items-center gap-2 text-text-muted text-xs font-medium uppercase tracking-wider mb-2">
+                  <User className="w-3.5 h-3.5" /> Customer
+                </div>
+                <p className="text-sm text-text-primary font-medium">{selectedReview.customer_name || 'Unknown'}</p>
+                {selectedReview.customer_email && (
+                  <p className="text-xs text-text-secondary mt-0.5">{selectedReview.customer_email}</p>
+                )}
+              </div>
+
+              {/* Date */}
+              <div className="flex items-center gap-2 text-sm text-text-secondary">
+                <Calendar className="w-4 h-4 text-text-muted" />
+                Posted on {formatDate(selectedReview.created_at)}
+              </div>
+
+              {/* Toggle Visibility */}
+              <button
+                onClick={() => handleToggleVisibility(selectedReview.review_id, selectedReview.is_visible)}
+                disabled={togglingId === selectedReview.review_id}
+                className={`w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-xl transition-colors disabled:opacity-40 ${
+                  selectedReview.is_visible
+                    ? 'bg-status-cancelled/10 text-status-cancelled hover:bg-status-cancelled/20 border border-status-cancelled/30'
+                    : 'bg-status-available/10 text-status-available hover:bg-status-available/20 border border-status-available/30'
+                }`}
+              >
+                {togglingId === selectedReview.review_id ? (
+                  <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                ) : selectedReview.is_visible ? (
+                  <><EyeOff className="w-4 h-4" /> Hide This Review</>
+                ) : (
+                  <><Eye className="w-4 h-4" /> Show This Review</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+
   );
 }

@@ -1,5 +1,5 @@
 from typing import Generator
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy.orm import Session
@@ -20,7 +20,7 @@ def get_db() -> Generator:
         db.close()
 
 
-def get_current_user(
+def get_staff_session(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ):
@@ -44,11 +44,24 @@ def get_current_user(
         raise credentials_exception
 
     user = get_user_by_email(db, email=email)
-    if user is None:
+    if user is None or not user.is_active or payload.get("auth_version", 0) != user.auth_version:
         raise credentials_exception
-    if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
     return user
+
+
+def get_current_user(user=Depends(get_staff_session)):
+    if user.must_change_password:
+        raise HTTPException(status_code=403, detail="Change your temporary password before using the staff portal.")
+    return user
+
+
+def require_module(module: str):
+    def check_module(request: Request, user=Depends(get_current_user)):
+        level = user.access.get(module, "none")
+        if level == "none" or (level == "view" and request.method not in {"GET", "HEAD"}):
+            raise HTTPException(status_code=403, detail="Insufficient module access")
+        return user
+    return check_module
 
 
 def get_current_customer(
@@ -78,7 +91,7 @@ def get_current_customer(
     ).first()
     if account is None:
         raise credentials_exception
-    if not account.is_active:
+    if not account.is_active or not account.customer.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is inactive",

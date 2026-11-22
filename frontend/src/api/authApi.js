@@ -11,5 +11,6 @@ export const authApi = {
       })
       .then((r) => r.data);
   },
+  changePassword: (body) => api.post("/api/v1/auth/change-password", body).then((r) => r.data),
   me: () => api.get("/api/v1/auth/me").then((r) => r.data),
 };

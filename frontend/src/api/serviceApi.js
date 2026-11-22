@@ -1,5 +1,6 @@
 import api from "./axiosInstance";
 export const serviceApi = {
+  formOptions: () => api.get("/api/v1/service/form-options").then(r => r.data),
   list:       (params)       => api.get("/api/v1/service/", { params }).then(r => r.data),
   get:        (id)           => api.get(`/api/v1/service/${id}`).then(r => r.data),
   create:     (data)         => api.post("/api/v1/service/", data).then(r => r.data),

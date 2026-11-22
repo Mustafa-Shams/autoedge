@@ -1,7 +1,8 @@
-from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Integer, JSON, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
+from app.core.staff_access import effective_access
 
 
 class User(Base):
@@ -15,6 +16,15 @@ class User(Base):
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     handles_enquiries = Column(Boolean, nullable=False, default=False)
+    phone = Column(String(20))
+    last_login_at = Column(DateTime)
+    module_access = Column(JSON, nullable=False, default=dict)
+    must_change_password = Column(Boolean, nullable=False, default=False)
+    auth_version = Column(Integer, nullable=False, default=0)
+
+    @property
+    def access(self):
+        return effective_access(self.role, self.module_access, self.handles_enquiries)
 
     # Relationships
     test_drives = relationship("TestDrive", back_populates="assigned_staff", foreign_keys="TestDrive.assigned_to")

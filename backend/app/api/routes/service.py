@@ -4,6 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_role
+from app.models.customer import Customer
+from app.models.user import User
+from app.models.vehicle import Vehicle
 from app.crud.crud_service import (
     get_service_job, get_service_jobs, create_service_job, update_service_job,
     add_part, get_parts, delete_part,
@@ -41,6 +44,22 @@ async def create_job(
     _=Depends(ALLOWED),
 ):
     return create_service_job(db, job_in)
+
+
+@router.get("/form-options")
+def get_form_options(db: Session = Depends(get_db), _=Depends(ALLOWED)):
+    vehicles = db.query(Vehicle.vehicle_id, Vehicle.year, Vehicle.make, Vehicle.model).order_by(
+        Vehicle.make, Vehicle.model, Vehicle.year, Vehicle.vehicle_id
+    )
+    customers = db.query(Customer.customer_id, Customer.full_name).order_by(Customer.full_name, Customer.customer_id)
+    technicians = db.query(User.user_id, User.full_name).filter(
+        User.role == "technician", User.is_active.is_(True),
+    ).order_by(User.full_name)
+    return {
+        "vehicles": [row._asdict() for row in vehicles],
+        "customers": [row._asdict() for row in customers],
+        "technicians": [row._asdict() for row in technicians],
+    }
 
 
 @router.get("/{job_id}", response_model=ServiceJobResponse)

@@ -55,6 +55,8 @@ class ServiceJobResponse(ServiceJobBase):
     model_config = ConfigDict(from_attributes=True)
 
     job_id: int
+    vehicle_id: Optional[int] = None
+    customer_vehicle_id: Optional[int] = None
     created_at: datetime
     parts: List[ServicePartResponse] = []
     # Enriched display fields (populated by CRUD layer)

@@ -4,25 +4,17 @@ POST /store/auth/register   — Create account + bank + welcome notification
 POST /store/auth/login      — Email + password → token
 GET  /store/auth/check-email — Live availability check
 """
-import random
-import string
-from datetime import datetime, timezone
-from decimal import Decimal
-
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.core.config import settings
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import verify_password, create_access_token
 from app.core.time import utcnow
 from app.models.customer import Customer
 from app.models.customer_account import CustomerAccount
-from app.models.bank_account import BankAccount
-from app.models.bank_transaction import BankTransaction
-from app.models.notification import Notification
-from app.models.email_outbox import EmailOutbox
-from app.services.notify_service import notify
+from app.services.customer_accounts import open_customer_account
 from app.schemas.store_auth import (
     RegisterRequest,
     LoginRequest,
@@ -32,25 +24,6 @@ from app.schemas.store_auth import (
 )
 
 router = APIRouter(prefix="/store/auth", tags=["store-auth"])
-
-
-def _generate_account_number() -> str:
-    """Generate a random account number like 'AE' + 10 random digits."""
-    digits = "".join(random.choices(string.digits, k=10))
-    return f"AE{digits}"
-
-
-def _generate_card_last4() -> str:
-    """Generate a random 4-digit card_last4 for display."""
-    return "".join(random.choices(string.digits, k=4))
-
-
-def _generate_reference_code() -> str:
-    """Generate a unique transaction reference code."""
-    now = datetime.now(timezone.utc)
-    date_part = now.strftime("%Y%m%d")
-    rand_part = "".join(random.choices(string.digits, k=6))
-    return f"TXN-{date_part}-{rand_part}"
 
 
 @router.post("/register", response_model=CustomerTokenResponse, status_code=status.HTTP_201_CREATED)
@@ -83,8 +56,11 @@ async def register(
 
     # Look for existing customer with same email (walk-in created by staff)
     existing_customer = db.query(Customer).filter(
-        Customer.email.ilike(normalized_email)
-    ).first()
+        func.lower(Customer.email) == normalized_email
+    ).with_for_update().first()
+
+    if existing_customer and not existing_customer.is_active:
+        raise HTTPException(status_code=409, detail="This account is inactive.")
 
     try:
         # 1. Create or link customer
@@ -92,6 +68,7 @@ async def register(
             # Link to existing walk-in customer
             customer = existing_customer
             # Update customer info from registration
+            customer.email = normalized_email
             customer.full_name = req.full_name
             customer.phone = req.phone
         else:
@@ -104,73 +81,16 @@ async def register(
             db.add(customer)
             db.flush()  # Get customer_id
 
-        # 2. Create customer account
-        password_hashed = hash_password(req.password)
-        account = CustomerAccount(
-            customer_id=customer.customer_id,
-            email=normalized_email,
-            password_hash=password_hashed,
-            is_active=True,
-            email_verified=False,
-            last_login_at=utcnow(),
-        )
-        db.add(account)
-        db.flush()  # Get account_id
-
-        # 3. Create bank account
-        # Ensure unique account_number
-        acct_number = _generate_account_number()
-        while db.query(BankAccount).filter(BankAccount.account_number == acct_number).first():
-            acct_number = _generate_account_number()
-
-        card_last4 = _generate_card_last4()
-        starting_balance = settings.DEMO_STARTING_BALANCE
-
-        bank_acct = BankAccount(
-            customer_id=customer.customer_id,
-            bank_name="AutoEdge Demo Bank",
-            account_number=acct_number,
-            card_last4=card_last4,
-            balance=starting_balance,
-        )
-        db.add(bank_acct)
-        db.flush()  # Get bank_account_id
-
-        # 4. Credit Opening Balance transaction
-        ref_code = _generate_reference_code()
-        # Ensure unique reference code
-        while db.query(BankTransaction).filter(BankTransaction.reference_code == ref_code).first():
-            ref_code = _generate_reference_code()
-
-        opening_txn = BankTransaction(
-            bank_account_id=bank_acct.bank_account_id,
-            txn_type="Opening Balance",
-            direction="Credit",
-            amount=starting_balance,
-            balance_after=starting_balance,
-            reference_code=ref_code,
-            description=f"Welcome to AutoEdge! Starting demo balance of ${starting_balance:,.2f}",
-        )
-        db.add(opening_txn)
-
-        # 5. Create welcome notification + email via notify service
-        notify(
-            db,
-            customer_id=customer.customer_id,
-            notification_type="welcome",
-            title="Welcome to AutoEdge!",
-            message=f"Your account has been created. You have a demo balance of ${starting_balance:,.2f} to explore our showroom. Browse cars, reserve your favorite, book test drives, and more!",
-            link_path="/account",
-            background_tasks=background_tasks,
-        )
+        account = open_customer_account(db, customer, req.password, background_tasks)
+        account.last_login_at = utcnow()
 
         db.commit()
         db.refresh(account)
         db.refresh(customer)
 
-    except Exception:
+    except IntegrityError as exc:
         db.rollback()
-        raise
+        raise HTTPException(status_code=409, detail="An account with this email already exists.") from exc
 
     # Create token (auto-login)
     token = create_access_token(
@@ -214,7 +134,7 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if not account.is_active:
+    if not account.is_active or not account.customer.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is inactive",

@@ -4,13 +4,13 @@ GET /email-log — List all email outbox entries with filters [manager only].
 """
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_role
 from app.models.email_outbox import EmailOutbox
 from app.models.customer import Customer
+from app.services.email_service import provider_configured, send
 
 router = APIRouter(prefix="/email-log", tags=["staff-email-log"])
 
@@ -28,7 +28,7 @@ async def list_email_log(
     """List all email outbox entries. Manager only.
 
     Filters:
-        status: Queued | Sent | Suppressed | Failed
+        status: Queued | Sent | Suppressed | Failed | Skipped
     """
     q = db.query(EmailOutbox)
 
@@ -68,7 +68,17 @@ async def list_email_log(
 
     return {
         "items": items,
+        "provider_configured": provider_configured(),
         "total": total,
         "page": page,
         "page_size": page_size,
     }
+
+@router.post("/{email_id}/retry")
+async def retry_email(email_id: int, db: Session = Depends(get_db), _=Depends(MANAGER)):
+    if db.get(EmailOutbox, email_id) is None:
+        raise HTTPException(status_code=404, detail="Email log entry not found.")
+    result = await send(db, email_id, retry=True)
+    if result is None:
+        raise HTTPException(status_code=409, detail="This email cannot be retried or is already being processed.")
+    return {"email_id": email_id, "status": result}

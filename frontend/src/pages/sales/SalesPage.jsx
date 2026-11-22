@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Filter } from "lucide-react";
 import { salesApi } from "../../api/salesApi";
-import PageWrapper from "../../components/layout/PageWrapper";
 import DataTable from "../../components/common/DataTable";
 import StatusBadge from "../../components/common/StatusBadge";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
@@ -53,7 +52,7 @@ export default function SalesPage() {
   const totalPages = Math.max(1, Math.ceil(sales.length / PAGE_SIZE));
 
   return (
-    <PageWrapper>
+
       <div className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -105,6 +104,6 @@ export default function SalesPage() {
           />
         )}
       </div>
-    </PageWrapper>
+
   );
 }

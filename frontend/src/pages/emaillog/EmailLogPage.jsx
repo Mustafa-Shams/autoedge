@@ -5,8 +5,8 @@
  * Shows all outgoing emails with status: Queued / Sent / Suppressed / Failed.
  * Status filter tabs, paginated table with customer info and error details.
  */
-import { useState, useEffect, useCallback } from 'react';
-import { getEmailLog } from '../../api/emailLogApi';
+import { Fragment, useState, useEffect, useCallback } from 'react';
+import { getEmailLog, retryEmail } from '../../api/emailLogApi';
 import {
   Mail,
   RefreshCw,
@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Send,
+  SkipForward,
 } from 'lucide-react';
 
 const STATUS_TABS = [
@@ -25,6 +26,7 @@ const STATUS_TABS = [
   { key: 'Queued', label: 'Queued' },
   { key: 'Sent', label: 'Sent' },
   { key: 'Suppressed', label: 'Suppressed' },
+  { key: 'Skipped', label: 'Skipped' },
   { key: 'Failed', label: 'Failed' },
 ];
 
@@ -32,6 +34,7 @@ const STATUS_ICON_MAP = {
   Queued: Clock,
   Sent: CheckCircle,
   Suppressed: Ban,
+  Skipped: SkipForward,
   Failed: XCircle,
 };
 
@@ -39,11 +42,15 @@ const STATUS_COLORS = {
   Queued: 'bg-status-scheduled/20 text-status-scheduled border-status-scheduled/30',
   Sent: 'bg-status-available/20 text-status-available border-status-available/30',
   Suppressed: 'bg-status-reserved/20 text-status-reserved border-status-reserved/30',
+  Skipped: 'bg-yellow-900/20 text-yellow-400 border-yellow-400/30',
   Failed: 'bg-status-cancelled/20 text-status-cancelled border-status-cancelled/30',
 };
 
 export default function EmailLogPage() {
   const [emails, setEmails] = useState([]);
+  const [configured, setConfigured] = useState(null);
+  const [retrying, setRetrying] = useState(null);
+  const [retryError, setRetryError] = useState(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -64,6 +71,7 @@ export default function EmailLogPage() {
       const res = await getEmailLog(params);
       setEmails(res.data.items || []);
       setTotal(res.data.total || 0);
+      setConfigured(res.data.provider_configured);
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to load email log.');
     } finally {
@@ -74,6 +82,19 @@ export default function EmailLogPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  async function handleRetry(id) {
+    setRetrying(id);
+    setRetryError(null);
+    try {
+      await retryEmail(id);
+      await fetchData();
+    } catch (err) {
+      setRetryError(err.response?.data?.detail || 'Email retry failed.');
+    } finally {
+      setRetrying(null);
+    }
+  }
 
   const handleFilterChange = (key) => {
     setStatusFilter(key);
@@ -101,7 +122,8 @@ export default function EmailLogPage() {
   }, {});
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+
+    <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -124,6 +146,13 @@ export default function EmailLogPage() {
           Refresh
         </button>
       </div>
+
+      {configured === false && (
+        <p role="status" className="mb-5 rounded-lg border border-status-pending/30 bg-status-pending/10 p-3 text-status-pending">
+          Email delivery is not configured
+        </p>
+      )}
+      {retryError && <p role="alert" className="mb-4 text-status-cancelled">{retryError}</p>}
 
       {/* Status filter tabs */}
       <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-1">
@@ -200,10 +229,11 @@ export default function EmailLogPage() {
               <tbody className="divide-y divide-bg-border">
                 {emails.map((e) => {
                   const StatusIcon = STATUS_ICON_MAP[e.status] || Clock;
+                  const canRetry = ["Failed", "Skipped"].includes(e.status);
                   const isExpanded = expandedId === e.email_id;
 
                   return (
-                    <>
+                    <Fragment key={e.email_id}>
                       <tr
                         key={e.email_id}
                         className={`hover:bg-bg-elevated/50 transition-colors cursor-pointer ${
@@ -213,7 +243,10 @@ export default function EmailLogPage() {
                       >
                         <td className="px-4 py-3">
                           <span className="text-sm font-mono text-text-secondary">
-                            #{e.email_id}
+                            <button type="button" aria-expanded={isExpanded} onClick={(event) => {
+                              event.stopPropagation();
+                              setExpandedId(isExpanded ? null : e.email_id);
+                            }}>#{e.email_id}</button>
                           </span>
                         </td>
                         <td className="px-4 py-3">
@@ -252,38 +285,27 @@ export default function EmailLogPage() {
                           </span>
                         </td>
                       </tr>
-                      {/* Expanded error row */}
-                      {isExpanded && e.error_message && (
-                        <tr key={`${e.email_id}-error`}>
-                          <td colSpan={6} className="px-4 py-3 bg-status-cancelled/5">
-                            <div className="flex items-start gap-2">
-                              <AlertTriangle className="w-4 h-4 text-status-cancelled flex-shrink-0 mt-0.5" />
-                              <div>
-                                <p className="text-xs font-medium text-status-cancelled mb-1">
-                                  Error Details
-                                </p>
-                                <p className="text-xs text-text-secondary font-mono whitespace-pre-wrap break-all">
-                                  {e.error_message}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                      {isExpanded && !e.error_message && e.status === 'Suppressed' && (
-                        <tr key={`${e.email_id}-info`}>
-                          <td colSpan={6} className="px-4 py-3 bg-status-reserved/5">
-                            <div className="flex items-start gap-2">
-                              <Ban className="w-4 h-4 text-status-reserved flex-shrink-0 mt-0.5" />
-                              <p className="text-xs text-text-secondary">
-                                This email was suppressed because the recipient address belongs to a
-                                demo/test domain. The customer still receives an in-app notification.
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-3 bg-bg-elevated/50">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-sm text-text-secondary whitespace-pre-wrap break-all">
+                                {e.error_message || (e.status === "Suppressed"
+                                  ? "Email suppressed for a demo or test address."
+                                  : e.status)}
                               </p>
+                              {canRetry && (
+                                <button type="button" disabled={retrying !== null}
+                                  className="rounded border border-bg-border px-3 py-1.5 text-sm text-text-primary disabled:opacity-50"
+                                  onClick={() => handleRetry(e.email_id)}>
+                                  {retrying === e.email_id ? "Retrying…" : "Retry"}
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -319,5 +341,6 @@ export default function EmailLogPage() {
         </div>
       )}
     </div>
+
   );
 }

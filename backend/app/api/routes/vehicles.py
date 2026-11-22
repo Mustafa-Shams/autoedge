@@ -8,15 +8,14 @@ Decision #23: Added PUT /vehicles/{id}/images/bulk for atomic image replacement.
 GET /vehicles/{id} now returns images[] in the response.
 """
 from decimal import Decimal
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Literal, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_role
 from app.crud.crud_vehicle import (
-    get_vehicle, get_vehicles, get_available_vehicles,
+    get_vehicle, get_vehicle_page, get_available_vehicles,
     create_vehicle, update_vehicle, delete_vehicle,
-    count_vehicles,
 )
 from app.schemas.vehicle import (
     VehicleCreate, VehicleUpdate, VehicleResponse,
@@ -39,24 +38,30 @@ async def list_available_vehicles(db: Session = Depends(get_db), _=Depends(ALL_R
 
 @router.get("/")
 async def list_vehicles(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     status: Optional[str] = None,
     make: Optional[str] = None,
     year: Optional[int] = None,
     price_min: Optional[Decimal] = None,
     price_max: Optional[Decimal] = None,
     condition_type: Optional[str] = None,
+    search: Optional[str] = Query(None, max_length=200),
+    sort: Literal["vehicle_id", "make", "model", "year", "color", "condition_type",
+                  "price", "stock_quantity", "status", "is_published"] = "vehicle_id",
+    direction: Literal["asc", "desc"] = "asc",
     db: Session = Depends(get_db),
     _=Depends(ALL_ROLES),
 ):
     filter_kw = dict(status=status, make=make, year=year,
                      price_min=price_min, price_max=price_max,
-                     condition_type=condition_type)
-    items = get_vehicles(db, skip=skip, limit=limit, **filter_kw)
-    total = count_vehicles(db, **filter_kw)
+                     condition_type=condition_type, search=search)
+    items, total = get_vehicle_page(db, skip, limit, sort, direction, **filter_kw)
     return {
-        "items": [VehicleResponse.model_validate(v) for v in items],
+        "items": [
+            VehicleResponse.model_validate(vehicle).model_copy(update={"active_reservation_count": count})
+            for vehicle, count in items
+        ],
         "total": total,
         "skip": skip,
         "limit": limit,

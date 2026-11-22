@@ -1,3 +1,4 @@
+import BackButton from "../../components/common/BackButton";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -99,12 +100,18 @@ function formatDateTime(isoStr) {
   });
 }
 
-function daysUntilExpiry(expiresAt) {
-  if (!expiresAt) return null;
-  const now = new Date();
-  const exp = new Date(expiresAt);
-  const diff = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
-  return diff;
+function expiryLabel(expiresAt, status) {
+  if (!expiresAt || !["Active", "Expired"].includes(status)) return null;
+  const elapsedHours = (Date.now() - new Date(expiresAt).getTime()) / 3_600_000;
+  if (elapsedHours >= 0) {
+    const hours = Math.floor(elapsedHours);
+    if (!hours) return "Expired just now";
+    if (hours < 24) return 'Expired ' + hours + ' hour' + (hours === 1 ? '' : 's') + ' ago';
+    const days = Math.floor(hours / 24);
+    return 'Expired ' + days + ' day' + (days === 1 ? '' : 's') + ' ago';
+  }
+  const days = Math.ceil(-elapsedHours / 24);
+  return days === 1 ? "Expiring today" : days + " days left";
 }
 
 export default function ReservationsStaffPage() {
@@ -131,13 +138,13 @@ export default function ReservationsStaffPage() {
         page,
         page_size: pageSize,
       }),
-    keepPreviousData: true,
+    refetchInterval: 60_000,
   });
 
   const cancelMutation = useMutation({
     mutationFn: (id) => reservationsApi.cancel(id),
     onSuccess: (response) => {
-      queryClient.invalidateQueries(["staff-reservations"]);
+      queryClient.invalidateQueries({ queryKey: ["staff-reservations"] });
       setCancelTarget(null);
       setSelectedReservation(null);
       // Show result message briefly
@@ -169,6 +176,7 @@ export default function ReservationsStaffPage() {
   const activeCount = statusFilter === "Active" ? total : null;
 
   return (
+
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -280,7 +288,7 @@ export default function ReservationsStaffPage() {
               </thead>
               <tbody className="divide-y divide-bg-border">
                 {filtered.map((r) => {
-                  const daysLeft = daysUntilExpiry(r.expires_at);
+                  const deadline = expiryLabel(r.expires_at, r.status);
                   const vehicleLabel = [
                     r.vehicle_year,
                     r.vehicle_make,
@@ -326,20 +334,8 @@ export default function ReservationsStaffPage() {
                         <div className="text-text-secondary">
                           {formatDate(r.expires_at)}
                         </div>
-                        {r.status === "Active" && daysLeft != null && (
-                          <div
-                            className={`text-xs mt-0.5 ${
-                              daysLeft <= 2
-                                ? "text-status-cancelled font-medium"
-                                : daysLeft <= 5
-                                  ? "text-status-pending"
-                                  : "text-text-muted"
-                            }`}
-                          >
-                            {daysLeft <= 0
-                              ? "Expiring today"
-                              : `${daysLeft} day${daysLeft !== 1 ? "s" : ""} left`}
-                          </div>
+                        {deadline && (
+                          <div className="mt-0.5 text-xs text-text-muted">{deadline}</div>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -416,13 +412,14 @@ export default function ReservationsStaffPage() {
           onClick={() => setSelectedReservation(null)}
         >
           <div
+            role="dialog" aria-modal="true" aria-label="Reservation details"
             className="bg-bg-card border border-bg-border rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-bg-border">
               <div className="flex items-center gap-3">
-                <Bookmark className="w-5 h-5 text-accent-blue" />
+                <BackButton onClick={() => setSelectedReservation(null)} />
                 <h2 className="text-lg font-bold text-text-primary">
                   Reservation #{selectedReservation.reservation_id}
                 </h2>
@@ -442,12 +439,12 @@ export default function ReservationsStaffPage() {
                 <StatusBadge status={selectedReservation.status} />
                 {selectedReservation.status === "Active" && (
                   <span className="text-sm text-text-muted">
-                    {(() => {
-                      const d = daysUntilExpiry(selectedReservation.expires_at);
-                      if (d === null) return "";
-                      if (d <= 0) return "Expiring today!";
-                      return `${d} day${d !== 1 ? "s" : ""} remaining`;
-                    })()}
+                    {expiryLabel(selectedReservation.expires_at, selectedReservation.status) || ""}
+                  </span>
+                )}
+                {selectedReservation.status === "Expired" && (
+                  <span className="text-sm text-status-cancelled">
+                    {expiryLabel(selectedReservation.expires_at, selectedReservation.status) || ""}
                   </span>
                 )}
               </div>
@@ -625,5 +622,6 @@ export default function ReservationsStaffPage() {
         </div>
       )}
     </div>
+
   );
 }

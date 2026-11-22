@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { commissionsApi } from "../../api/commissionsApi";
-import PageWrapper from "../../components/layout/PageWrapper";
 import DataTable from "../../components/common/DataTable";
 import StatusBadge from "../../components/common/StatusBadge";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
@@ -96,7 +95,7 @@ export default function CommissionsPage() {
   ];
 
   return (
-    <PageWrapper>
+
       <div className="space-y-5">
         <div>
           <h2 className="text-2xl font-bold text-text-primary">Commissions</h2>
@@ -124,6 +123,6 @@ export default function CommissionsPage() {
           />
         )}
       </div>
-    </PageWrapper>
+
   );
 }

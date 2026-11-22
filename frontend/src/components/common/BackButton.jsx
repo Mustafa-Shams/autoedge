@@ -5,14 +5,16 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
-export default function BackButton({ fallback = "/", label = "Back", className = "" }) {
+export default function BackButton({ fallback = "/", label = "Back", className = "", onClick }) {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    if (window.history.length > 2) {
+    if (onClick) {
+      onClick();
+    } else if (window.history.state?.idx > 0) {
       navigate(-1);
     } else {
-      navigate(fallback);
+      navigate(fallback, { replace: true });
     }
   };
 

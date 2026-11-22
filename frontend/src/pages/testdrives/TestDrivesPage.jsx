@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Filter, Globe, Monitor, Check, X, Clock } from "lucide-react";
 import { testDrivesApi } from "../../api/testDrivesApi";
-import PageWrapper from "../../components/layout/PageWrapper";
 import DataTable from "../../components/common/DataTable";
 import StatusBadge from "../../components/common/StatusBadge";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
@@ -161,7 +160,7 @@ export default function TestDrivesPage() {
   ];
 
   return (
-    <PageWrapper>
+
       <div className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -291,6 +290,6 @@ export default function TestDrivesPage() {
           </div>
         )}
       </div>
-    </PageWrapper>
+
   );
 }

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Filter } from "lucide-react";
 import { serviceApi } from "../../api/serviceApi";
-import PageWrapper from "../../components/layout/PageWrapper";
 import DataTable from "../../components/common/DataTable";
 import StatusBadge from "../../components/common/StatusBadge";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
@@ -63,7 +62,7 @@ export default function ServicePage() {
   const totalPages = Math.max(1, Math.ceil(jobs.length / PAGE_SIZE));
 
   return (
-    <PageWrapper>
+
       <div className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -118,6 +117,6 @@ export default function ServicePage() {
           />
         )}
       </div>
-    </PageWrapper>
+
   );
 }
