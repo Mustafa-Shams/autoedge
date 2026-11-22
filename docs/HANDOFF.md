@@ -1,5 +1,17 @@
 # HANDOFF — AutoEdge
 
+## Brevo delivery investigation
+
+The backend already posted to `https://api.brevo.com/v3/smtp/email` with the `api-key` header. Its configuration check trimmed the key and sender address only to test whether they contained a value. The actual request used the original strings. Surrounding quotes could therefore reach Brevo as part of the key. Whitespace or newlines could also make HTTPX reject the header before a response. An empty key took the Skipped path. The exact credential seen by the running Railway deployment has not been verified.
+
+The backend reads `EMAIL_PROVIDER`, `EMAIL_API_KEY`, `EMAIL_FROM_ADDRESS`, and `EMAIL_FROM_NAME` (default `AutoEdge`) when the process starts. All four are now trimmed of outer whitespace and matching surrounding quotes. The Brevo request sends the cleaned key, JSON Content-Type and Accept headers, sender name and address, recipient name and address, subject, and HTML content. The recipient address doubles as the display name for a test email. Customer notifications use the customer's name when available.
+
+After deploying these changes or updating variables on the Railway **backend service**, open **Staff → Email Log**, enter a deliverable address, and choose **Send test email**. This manager action calls `POST /api/v1/email-log/test` with `{"to":"recipient@your-domain.com"}` and records the attempt in the outbox. The HTTP status mirrors the provider response. The panel displays its status and body, including a Brevo message ID on acceptance. When the provider was never reached, the panel shows the local reason. Existing test-domain suppression applies.
+
+For a repeated 401, compare the normalized key length and first eight characters in the backend failure log with the locally working key. The prefix and length can reveal a mismatch but cannot identify the full key. Keys eight characters or shorter have their prefix withheld. The outbox stores the complete HTTP failure body with credential echoes redacted. An earlier bug in the staff Retry API client was also fixed. This change needs no database migration or new Railway variables.
+
+Local verification passed all 149 backend tests with seven warnings. Five new provider-mocked cases covered request construction, quoted and padded Railway-style values, recipient names, manager access, 201 acceptance, 401 rejection, redaction, long error bodies, and local failures without a provider response. The staff frontend build and lint passed. The build retains its bundle-size warning. Live Railway delivery is pending deployment and a manager test.
+
 ## Staff portal follow-up
 
 Updated 2026-11-22 PKT. The staff-portal changes are local. See decisions 24–33 for the original causes, access rules, and rollout.

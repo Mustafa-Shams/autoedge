@@ -8,4 +8,6 @@ import axiosInstance from './axiosInstance';
  */
 export const getEmailLog = (params) => axiosInstance.get('/api/v1/email-log', { params });
 
-export const retryEmail = (id) => api.post('/api/v1/email-log/' + id + '/retry');
+export const retryEmail = (id) => axiosInstance.post('/api/v1/email-log/' + id + '/retry');
+
+export const sendTestEmail = (to) => axiosInstance.post('/api/v1/email-log/test', { to });

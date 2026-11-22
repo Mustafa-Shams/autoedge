@@ -6,7 +6,8 @@
  * Status filter tabs, paginated table with customer info and error details.
  */
 import { Fragment, useState, useEffect, useCallback } from 'react';
-import { getEmailLog, retryEmail } from '../../api/emailLogApi';
+import { getEmailLog, retryEmail, sendTestEmail } from '../../api/emailLogApi';
+import { apiError } from '../../utils/apiError';
 import {
   Mail,
   RefreshCw,
@@ -51,6 +52,9 @@ export default function EmailLogPage() {
   const [configured, setConfigured] = useState(null);
   const [retrying, setRetrying] = useState(null);
   const [retryError, setRetryError] = useState(null);
+  const [recipient, setRecipient] = useState('');
+  const [sending, setSending] = useState(false);
+  const [testResult, setTestResult] = useState(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -93,6 +97,22 @@ export default function EmailLogPage() {
       setRetryError(err.response?.data?.detail || 'Email retry failed.');
     } finally {
       setRetrying(null);
+    }
+  }
+
+  async function handleTest(event) {
+    event.preventDefault();
+    setSending(true);
+    setTestResult(null);
+    try {
+      const response = await sendTestEmail(recipient.trim());
+      setTestResult(response.data);
+    } catch (err) {
+      const result = err.response?.data;
+      setTestResult(result?.status ? result : { detail: apiError(err, 'Could not run the email test.') });
+    } finally {
+      setSending(false);
+      await fetchData();
     }
   }
 
@@ -153,6 +173,29 @@ export default function EmailLogPage() {
         </p>
       )}
       {retryError && <p role="alert" className="mb-4 text-status-cancelled">{retryError}</p>}
+
+      <form onSubmit={handleTest} className="mb-5 flex flex-wrap items-end gap-3">
+        <label className="text-sm text-text-secondary">
+          Test recipient
+          <input type="email" required maxLength={150} value={recipient}
+            onChange={(event) => setRecipient(event.target.value)}
+            className="input mt-1 block" autoComplete="email" />
+        </label>
+        <button type="submit" disabled={sending}
+          className="flex items-center gap-2 rounded-lg bg-accent-blue px-4 py-2 text-sm text-white disabled:opacity-50">
+          <Send size={16} /> {sending ? 'Sending…' : 'Send test email'}
+        </button>
+      </form>
+      {testResult && (
+        <div role="status" className="mb-5 rounded-lg border border-bg-border bg-bg-card p-3 text-sm text-text-primary">
+          {testResult.provider_status != null ? (
+            <>
+              <p>Provider response · HTTP {testResult.provider_status}</p>
+              <pre className="mt-2 whitespace-pre-wrap break-all">{testResult.provider_body || '(empty body)'}</pre>
+            </>
+          ) : <p>{testResult.detail}</p>}
+        </div>
+      )}
 
       {/* Status filter tabs */}
       <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-1">

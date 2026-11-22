@@ -1,8 +1,12 @@
 """Staff portal regressions exercised through the staff and storefront APIs."""
+import json
+import logging
 import os
+from functools import partial
 from datetime import date, time, timedelta
 from decimal import Decimal
 
+import httpx
 import pytest
 
 os.environ["DATABASE_URL"] = "sqlite://"
@@ -14,7 +18,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_db
-from app.core.config import settings
+from app.core.config import Settings, settings
 from app.core.security import create_access_token, hash_password
 from app.core.time import utcnow
 from app.db.base import Base
@@ -369,7 +373,7 @@ def test_email_skipped_provider_failure_and_manager_retry(setup, monkeypatch):
         raise RuntimeError("Provider returned a delivery error")
 
     async def succeed(*_):
-        pass
+        return httpx.Response(201, json={"messageId": "accepted"})
 
     monkeypatch.setattr(settings, "EMAIL_PROVIDER", "brevo")
     monkeypatch.setattr(settings, "EMAIL_API_KEY", "dummy-api-key")
@@ -383,6 +387,115 @@ def test_email_skipped_provider_failure_and_manager_retry(setup, monkeypatch):
     sent = client.get(f"{API}/email-log", headers=manager).json()["items"][0]
     assert sent["error_message"] is None and sent["sent_at"]
     assert client.post(retry, headers=manager).status_code == 409
+
+
+@pytest.fixture
+def brevo(monkeypatch):
+    key = "fake-key-123456789-for-tests"
+    monkeypatch.setenv("EMAIL_API_KEY", f'  "{key} \r\n" \n')
+    monkeypatch.setenv("EMAIL_FROM_ADDRESS", " ' sender@autoedge.com ' \n")
+    monkeypatch.setenv("EMAIL_FROM_NAME", ' "AutoEdge Mail" ')
+    monkeypatch.setenv("EMAIL_PROVIDER", ' "Brevo" ')
+    config = Settings(_env_file=None, DATABASE_URL="sqlite://", SECRET_KEY="local-test")
+    assert config.EMAIL_API_KEY == key
+    monkeypatch.setattr(email_service, "settings", config)
+    return key
+
+
+def mock_email_http(monkeypatch, handler):
+    monkeypatch.setattr(httpx, "AsyncClient", partial(httpx.AsyncClient, transport=httpx.MockTransport(handler)))
+
+
+@pytest.mark.parametrize("code", [201, 401, 503])
+def test_manager_email_test_returns_and_records_provider_response(setup, monkeypatch, caplog, brevo, code):
+    client, sessions, manager = setup
+    recipient = "recipient@showroom.org"
+    body = {
+        201: '{"messageId":"sample-message"}',
+        401: '{"message":"Key not found","code":"unauthorized"}',
+        503: "Provider unavailable " + ("x" * 600) + " " + brevo,
+    }[code]
+    requests = []
+
+    def provider(request):
+        requests.append(request)
+        return httpx.Response(code, text=body)
+
+    mock_email_http(monkeypatch, provider)
+    with sessions.begin() as db:
+        _, sales = add_user(db, "sales_executive")
+    url = f"{API}/email-log/test"
+    assert client.post(url, json={"to": recipient}).status_code == 401
+    assert client.post(url, headers=sales, json={"to": recipient}).status_code == 403
+    assert client.post(url, headers=manager, json={"to": "invalid"}).status_code == 422
+    assert requests == []
+    with caplog.at_level(logging.INFO, logger=email_service.__name__):
+        response = client.post(url, headers=manager, json={"to": recipient})
+    assert response.status_code == code, response.text
+    [request] = requests
+    assert request.method == "POST" and str(request.url) == "https://api.brevo.com/v3/smtp/email"
+    assert request.headers.get_list("api-key") == [brevo]
+    assert request.headers["content-type"] == request.headers["accept"] == "application/json"
+    assert "authorization" not in request.headers
+    assert json.loads(request.content) == {
+        "sender": {"name": "AutoEdge Mail", "email": "sender@autoedge.com"},
+        "to": [{"email": recipient, "name": recipient}],
+        "subject": "AutoEdge email delivery test",
+        "htmlContent": "<p>This is a test email from the AutoEdge staff portal.</p>",
+    }
+    expected_body = body.replace(brevo, "[redacted]")
+    assert response.json()["provider_status"] == code
+    assert response.json()["provider_body"] == expected_body
+    row, = client.get(f"{API}/email-log", headers=manager).json()["items"]
+    assert row["status"] == ("Sent" if code == 201 else "Failed")
+    assert row["error_message"] == (None if code == 201 else f"HTTP {code}: {expected_body}")
+    assert f"key_length={len(brevo)}" in caplog.text and brevo[:8] in caplog.text
+    assert brevo not in caplog.text + response.text
+
+
+def test_email_test_distinguishes_local_failures_from_provider_http(setup, monkeypatch, brevo):
+    client, _, manager = setup
+    attempts = []
+
+    def offline(request):
+        attempts.append(request)
+        raise httpx.ConnectError("Unable to connect")
+
+    mock_email_http(monkeypatch, offline)
+    url = f"{API}/email-log/test"
+    suppressed = client.post(url, headers=manager, json={"to": "buyer@example.com"})
+    assert suppressed.status_code == 422 and suppressed.json()["status"] == "Suppressed"
+    response = client.post(url, headers=manager, json={"to": "buyer@showroom.org"})
+    assert response.status_code == 502 and response.json()["provider_status"] is None
+    assert response.json()["detail"] == "Unable to connect"
+    monkeypatch.setattr(email_service.settings, "EMAIL_API_KEY", ' "  " ')
+    skipped = client.post(url, headers=manager, json={"to": "buyer@showroom.org"})
+    assert skipped.status_code == 503 and skipped.json()["status"] == "Skipped"
+    assert skipped.json()["provider_body"] is None and len(attempts) == 1
+
+
+def test_customer_email_retry_uses_customer_name_and_same_brevo_request(setup, monkeypatch, brevo):
+    client, _, manager = setup
+    recipient = "buyer@showroom.org"
+    # Queue a skipped welcome email first so it can be retried through the staff API.
+    with monkeypatch.context() as patch:
+        patch.setattr(email_service.settings, "EMAIL_PROVIDER", "none")
+        signup(client, recipient)
+    row, = client.get(f"{API}/email-log", headers=manager).json()["items"]
+    requests = []
+
+    def provider(request):
+        requests.append(request)
+        return httpx.Response(401, text='{"message":"Key not found","code":"unauthorized"}')
+
+    mock_email_http(monkeypatch, provider)
+    result = client.post(f"{API}/email-log/{row['email_id']}/retry", headers=manager)
+    assert result.json()["status"] == "Failed"
+    [request] = requests
+    assert request.headers["api-key"] == brevo
+    assert json.loads(request.content)["to"] == [{"email": recipient, "name": "Local Buyer"}]
+    row, = client.get(f"{API}/email-log", headers=manager).json()["items"]
+    assert row["error_message"] == 'HTTP 401: {"message":"Key not found","code":"unauthorized"}'
 
 
 def test_staff_roles_overrides_password_reset_and_deactivation(setup):

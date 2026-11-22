@@ -19,7 +19,9 @@ axiosInstance.interceptors.request.use((config) => {
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && error.config?.url !== "/api/v1/auth/login") {
+    const providerUnauthorized = error.config?.url === "/api/v1/email-log/test"
+      && error.response?.data?.provider_status === 401;
+    if (error.response?.status === 401 && error.config?.url !== "/api/v1/auth/login" && !providerUnauthorized) {
       authStore.logout();
       window.location.href = "/login";
     }

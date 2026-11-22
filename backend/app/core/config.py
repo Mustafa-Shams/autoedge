@@ -1,10 +1,10 @@
 from pydantic_settings import BaseSettings
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_validator
 from decimal import Decimal
 
 
 class Settings(BaseSettings):
-    model_config = ConfigDict(env_file=".env")
+    model_config = ConfigDict(env_file=".env", validate_assignment=True)
 
     DATABASE_URL: str
     SECRET_KEY: str
@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     EMAIL_FROM_ADDRESS: str = ""
     EMAIL_FROM_NAME: str = "AutoEdge"
     EMAIL_SUPPRESS_DOMAINS: str = "example.com,example.org,example.net,email.com,test.com,autoedge.com"
+
+    @field_validator("EMAIL_PROVIDER", "EMAIL_API_KEY", "EMAIL_FROM_ADDRESS", "EMAIL_FROM_NAME")
+    @classmethod
+    def clean_email_setting(cls, value: str) -> str:
+        value = value.strip()
+        while len(value) >= 2 and value[0] in {"'", '"'} and value[-1] == value[0]:
+            value = value[1:-1].strip()
+        return value
 
     # Store URLs
     STORE_BASE_URL: str = "http://localhost:5174"
