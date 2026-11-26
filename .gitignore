@@ -34,3 +34,8 @@ backend/alembic_gen.db
 
 # Temp
 CUsersmustaAppDataLocalTempvite-autoedge/
+
+# Rollout snapshots (docs/ROLLOUT.md)
+rollout-test-*.json
+prod-before.json
+prod-after.json
