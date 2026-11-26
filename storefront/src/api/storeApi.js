@@ -17,6 +17,7 @@ export const changePassword = (data) => api.post('/store/me/change-password', da
 export const getBankSummary = () => api.get('/store/bank');
 export const getBankTransactions = (params) => api.get('/store/bank/transactions', { params });
 export const topUp = (data) => api.post('/store/bank/top-up', data);
+export const getSensitiveBankDetails = () => api.get('/store/bank/sensitive');
 
 // ── Reservations ────────────────────────────────────────────────────
 

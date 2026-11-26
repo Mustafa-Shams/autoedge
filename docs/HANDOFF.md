@@ -4,13 +4,15 @@
 
 Branch `redesign-local` (local only, never pushed). The owner confirmed the redesign workflow is final; commissions for assisted deals, the 20% pre-pickup refund, deals, units, trade acquisitions, Today and the outbox are by design. Safety rules are in CLAUDE.md. Tests use only `TEST_DATABASE_URL=postgresql://autoedge_test@127.0.0.1:55432/postgres` (owner's local server, binaries in C:\pgsql\pgsqlin).
 
+Local demo data for browser checks: database `autoedge_demo_local` on the same local server, migrated to head and seeded with seed.sql plus storefront_seed.seed() through a wrapper that disables load_dotenv (the seed script otherwise loads backend/.env). Run the backend with AUTOEDGE_TESTING=1 and TEST_DATABASE_URL pointing at that database so .env is never read and email is off.
+
 | Step | Status | Evidence |
 |---|---|---|
 | 0. Checkpoint branch | Done | Commit 0df96d0 on redesign-local holds the whole Codex working tree. Secret scan of the diff found nothing. |
 | 1. Full suite + two PostgreSQL bugs | Done | 192 passed, 7 warnings, on local PostgreSQL. Service cancellation writes txn_type `Refund` and new technicians default to `General`, allowed by 0016. Both regression tests now assert the stored values directly. |
 | 2. Migration round trip and schema comparison | Done | New tests in backend/tests/test_deal_migration.py: 0005 plus the four model-shaped empty strays -> head -> 0005 -> head. The 0005 catalog (columns, indexes, constraints, triggers, views, functions) is identical after downgrade and head is identical after re-upgrade. Model comparison leaves only eight reviewed naming differences (ACCEPTED_MODEL_DIFFERENCES); any new drift fails the test. 0016 downgrade no longer fails when technicians use General: the old rule is re-added NOT VALID and validated when no General row exists. scripts/db_check.py reviewed: read-only repeatable-read transaction, SELECT only; it now also reads DB_CHECK_URL. 13 migration tests passed. |
-| 3. Restore bank flip card | Next | |
-| 4. Enquiry categories | Pending | |
+| 3. Restore bank flip card | Done | BankCard.jsx flips with a real button (keyboard), shows demo CVV and PIN help on the back, eye button reveals the full number from GET /store/bank/sensitive. BankPage has a 'Where your PIN is needed' panel at #card. Shared PinHint links there from reservation checkout, Buy now and service booking (replaces the dead 'View card details' link). New tokens --color-card-front/-end keep white text above 7:1. Two endpoint tests in test_store_posts.py (owner-only, summary never carries full number). Headless Chrome on local demo data: front, back, eye toggle, deposit shown as -Debit, no overflow at 390px, no console errors. |
+| 4. Enquiry categories | Next | |
 | 5. Leftovers | Pending | |
 | 6. docs/DEMO.md | Pending | |
 | 7. docs/ROLLOUT.md | Pending | |

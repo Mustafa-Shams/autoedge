@@ -5,7 +5,7 @@ import ModalOverlay from '../../components/common/ModalOverlay';
  * balance_after), filter by type, pagination, top-up modal.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import * as storeApi from '../../api/storeApi';
 import BankCard from '../../components/payment/BankCard';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -33,10 +33,13 @@ function StatementDescription({ txn }) {
 
 export default function BankPage() {
   const { customer } = useAuth();
+  const location = useLocation();
 
   // Bank summary
   const [bankSummary, setBankSummary] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(true);
+  // Full account number and demo CVV for the flip card (owner-only endpoint)
+  const [cardDetails, setCardDetails] = useState(null);
 
 
   // Transactions
@@ -62,6 +65,7 @@ export default function BankPage() {
       setLoadingSummary(true);
       const res = await storeApi.getBankSummary();
       setBankSummary(res.data);
+      storeApi.getSensitiveBankDetails().then((r) => setCardDetails(r.data)).catch(() => setCardDetails(null));
     } catch (err) {
       setError('Failed to load bank account.');
     } finally {
@@ -139,6 +143,11 @@ export default function BankPage() {
     }
   };
 
+  // Payment forms link to #card; scroll once the card has rendered.
+  useEffect(() => {
+    if (bankSummary && location.hash === '#card') document.getElementById('card')?.scrollIntoView({ block: 'start' });
+  }, [bankSummary, location.hash]);
+
   const totalPages = Math.ceil(txnTotal / PAGE_SIZE);
 
   if (loadingSummary) return <LoadingSpinner fullPage text="Loading bank account…" />;
@@ -180,13 +189,27 @@ export default function BankPage() {
 
       {/* Bank card */}
       {bankSummary && (
-        <BankCard
-          bankName="AutoEdge Demo Bank"
-          cardLast4={bankSummary.card_last4}
-          customerName={customer?.full_name || bankSummary.customer_name || 'Account Holder'}
-          balance={parseFloat(bankSummary.balance)}
-          className="mb-8 max-w-md"
-        />
+        <section id="card" className="mb-8 grid gap-6 md:grid-cols-2 items-start scroll-mt-24" aria-label="Demo card">
+          <BankCard
+            bankName="AutoEdge Demo Bank"
+            cardLast4={bankSummary.card_last4}
+            customerName={customer?.full_name || bankSummary.customer_name || 'Account Holder'}
+            balance={parseFloat(bankSummary.balance)}
+            accountNumber={cardDetails?.account_number}
+            demoCvv={cardDetails?.demo_cvv}
+            className="max-w-md"
+          />
+          <div className="rounded-xl border border-bg-border bg-bg-card p-4 text-sm text-text-secondary">
+            <h2 className="text-base font-semibold text-text-primary mb-2">Where your PIN is needed</h2>
+            <p className="mb-2">Your card PIN is your AutoEdge <strong className="text-text-primary">login password</strong>. You type it to approve a payment from this card:</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Paying a reservation deposit</li>
+              <li>Buy now or Complete purchase</li>
+              <li>Paying a service booking fee</li>
+            </ul>
+            <p className="mt-2">Top-ups do not need the PIN. Flip the card to see the demo CVV, and use the eye button to show the full number.</p>
+          </div>
+        </section>
       )}
 
       {/* Demo note (Article XVIII) */}

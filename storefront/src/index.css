@@ -16,6 +16,9 @@
   --color-status-sold: #8B5CF6;
   --color-status-cancelled: #EF4444;
   --color-status-scheduled: #3B82F6;
+  /* Demo bank card faces: white text stays above 7:1 on both */
+  --color-card-front: #1E3A8A;
+  --color-card-front-end: #312E81;
   --font-family-sans: "Inter", system-ui, sans-serif;
 }
 

@@ -126,3 +126,25 @@ class TestPostsWithToken:
         # 201 (created) or 404 (vehicle not found) — both acceptable, never 307/401
         assert resp.status_code in (201, 404), \
             f"Expected 201 or 404, got {resp.status_code}: {resp.text}"
+
+
+class TestBankCardDetails:
+    """GET /store/bank/sensitive backs the flip card and full-number toggle."""
+
+    def test_owner_sees_own_card_details_only(self):
+        first = _register_customer("card-owner@example.com")
+        second = _register_customer("card-other@example.com")
+        mine = client.get("/api/v1/store/bank/sensitive", headers=_auth_header(first))
+        theirs = client.get("/api/v1/store/bank/sensitive", headers=_auth_header(second))
+        assert mine.status_code == 200 and theirs.status_code == 200
+        body = mine.json()
+        assert set(body) == {"account_number", "card_last4", "demo_cvv"}
+        assert body["account_number"].endswith(body["card_last4"]) or len(body["card_last4"]) == 4
+        assert body["account_number"] != theirs.json()["account_number"]
+        summary = client.get("/api/v1/store/bank", headers=_auth_header(first)).json()
+        assert summary["card_last4"] == body["card_last4"]
+        # The summary never carries the full number or CVV.
+        assert "account_number" not in summary and "demo_cvv" not in summary
+
+    def test_card_details_require_customer_token(self):
+        assert client.get("/api/v1/store/bank/sensitive").status_code == 401

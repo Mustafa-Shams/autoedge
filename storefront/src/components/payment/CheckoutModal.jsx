@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import * as storeApi from '../../api/storeApi';
 import BankCard from './BankCard';
 import PasswordField from '../forms/PasswordField';
+import PinHint from './PinHint';
 import { formatPrice } from '../../utils/formatters';
 
 const HOLD_OPTIONS = [
@@ -285,9 +286,7 @@ export default function CheckoutModal({
                 required
                 autoComplete="current-password"
               />
-              <p className="text-xs text-text-muted mt-1">
-                Use your login password. <a href="/account/bank" className="text-accent-blue hover:underline">View card details →</a>
-              </p>
+              <PinHint />
 
               {/* Error message */}
               {error && (

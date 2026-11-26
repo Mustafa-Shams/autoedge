@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { buyVehicle, getBankSummary, getPurchaseQuote } from '../../api/storeApi';
 import { getCustomer } from '../../store/authStore';
 import { formatPrice } from '../../utils/formatters';
+import PinHint from '../../components/payment/PinHint';
 
 export default function PurchaseCheckout() {
   const { id } = useParams();
@@ -63,6 +64,7 @@ export default function PurchaseCheckout() {
       {Number(offer.excess_at_pickup) > 0 && <p>Separately agreed payment to you at pickup · {formatPrice(offer.excess_at_pickup)}</p>}
       {Number(offer.balance) < Number(offer.charge) && <Link className="block text-accent-blue" to="/account/bank">Add funds to your demo wallet</Link>}
       <label className="block">Confirm your account password<input required type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} className="mt-1 block w-full rounded-lg border border-bg-border bg-bg-elevated p-2" /></label>
+      <PinHint />
       <button disabled={busy || quote.isFetching || Number(offer.balance) < Number(offer.charge)} className="rounded-xl bg-[#285bcf] px-5 py-3 font-semibold text-white disabled:opacity-50">{busy ? 'Processing…' : `Pay ${formatPrice(offer.charge)} and reserve pickup`}</button>
     </form>}
     {error && <p role="alert">{error}</p>}

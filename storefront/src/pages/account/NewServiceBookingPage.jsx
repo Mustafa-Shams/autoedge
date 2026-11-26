@@ -15,6 +15,7 @@ import * as publicApi from '../../api/publicApi';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PasswordField from '../../components/forms/PasswordField';
 import BankCard from '../../components/payment/BankCard';
+import PinHint from '../../components/payment/PinHint';
 import ProcessingSteps from '../../components/payment/ProcessingSteps';
 import BackButton from '../../components/common/BackButton';
 import { formatPrice, formatDate } from '../../utils/formatters';
@@ -600,6 +601,7 @@ export default function NewServiceBookingPage() {
               required
               autoComplete="current-password"
             />
+            <PinHint />
           </div>
 
           {/* Error */}
