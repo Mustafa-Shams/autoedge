@@ -7,6 +7,10 @@ from datetime import date
 from typing import List, Optional
 from sqlalchemy.orm import Session
 
+from app.models.service_booking import ServiceBooking
+from app.services.service_booking_service import (
+    cancel_booking, complete_booking_from_job, validate_assignment, ServiceBookingError,
+)
 from app.models.service_job import ServiceJob
 from app.models.service_part import ServicePart
 from app.models.vehicle import Vehicle
@@ -90,10 +94,33 @@ def create_service_job(db: Session, obj_in: ServiceJobCreate) -> ServiceJob:
 
 
 def update_service_job(db: Session, job_id: int, obj_in: ServiceJobUpdate) -> Optional[ServiceJob]:
-    job = db.query(ServiceJob).filter(ServiceJob.job_id == job_id).first()
+    # Customer cancellation also locks the booking before touching the job.
+    booking = db.query(ServiceBooking).filter_by(service_job_id=job_id).with_for_update().one_or_none()
+    job = db.query(ServiceJob).filter_by(job_id=job_id).with_for_update().first()
     if not job:
         return None
     data = obj_in.model_dump(exclude_unset=True)
+    if booking:
+        target = data.get("status", job.status)
+        if booking.status in ("Cancelled", "Completed", "No-Show") and target != booking.status:
+            raise ServiceBookingError("This appointment is already closed", 409)
+        if booking.status == "In Progress" and target not in ("In Progress", "Completed"):
+            raise ServiceBookingError("Work in progress can only be completed", 409)
+        if data.get("job_date", booking.booking_date) != booking.booking_date:
+            raise ServiceBookingError("This job uses the customer's booked appointment date", 409)
+        if "technician_id" in data and data["technician_id"] != booking.technician_id:
+            if booking.status not in ("Confirmed", "In Progress"):
+                raise ServiceBookingError("This appointment is already closed", 409)
+            validate_assignment(db, booking, data["technician_id"])
+            booking.technician_id = data["technician_id"]
+        if target == "Cancelled" and booking.status != "Cancelled":
+            cancel_booking(db, booking.customer_id, booking.booking_id)
+        elif target == "In Progress":
+            booking.status = target
+        elif target == "Completed":
+            complete_booking_from_job(db, job_id)
+        elif target not in ("Pending", "Cancelled"):
+            raise ServiceBookingError("Unknown workshop status", 422)
     for field, value in data.items():
         setattr(job, field, value)
     db.commit()

@@ -11,6 +11,7 @@ from app.crud.crud_service import (
     get_service_job, get_service_jobs, create_service_job, update_service_job,
     add_part, get_parts, delete_part,
 )
+from app.services.service_booking_service import ServiceBookingError
 from app.schemas.service import (
     ServiceJobCreate, ServiceJobUpdate, ServiceJobResponse,
     ServicePartCreate, ServicePartResponse,
@@ -77,21 +78,13 @@ async def update_job(
     db: Session = Depends(get_db),
     _=Depends(TECH_MANAGER),
 ):
-    job = update_service_job(db, job_id, job_in)
+    try:
+        job = update_service_job(db, job_id, job_in)
+    except ServiceBookingError as exc:
+        db.rollback()
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     if not job:
         raise HTTPException(status_code=404, detail="Service job not found")
-
-    # Spec 7.8 step 7: When service_jobs.status = Completed → linked booking → Completed
-    if job_in.status == "Completed":
-        from app.services.service_booking_service import complete_booking_from_job
-        try:
-            complete_booking_from_job(db, job_id)
-            db.commit()
-            # Re-enrich after commit
-            job = get_service_job(db, job_id)
-        except Exception:
-            pass  # Don't break the job update if booking cascade fails
-
     return job
 
 

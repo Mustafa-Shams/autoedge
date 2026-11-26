@@ -7,7 +7,9 @@ Full transactional reserve/cancel/expire/convert with:
 - FOR UPDATE SKIP LOCKED for concurrent expiry sweeps
 - Notifications on all state changes
 """
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
+
+from jose import JWTError, jwt
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional, Tuple
 
@@ -26,6 +28,7 @@ from app.models.vehicle import Vehicle
 from app.models.test_drive import TestDrive
 from app.models.trade_in_request import TradeInRequest
 from app.services import bank_service, stock_service
+from app.services.deal_service import reserve_unit, release_unit
 from app.services.notify_service import notify
 
 
@@ -37,6 +40,37 @@ class ReservationError(Exception):
         super().__init__(message)
 
 
+def hold_amounts(vehicle):
+    cents = Decimal("0.01")
+    deposit = (vehicle.price * settings.RESERVATION_DEPOSIT_PERCENT / 100).quantize(cents, rounding=ROUND_HALF_UP)
+    refund = (deposit * (100 - Decimal(str(settings.CANCELLATION_FEE_PERCENT))) / 100).quantize(cents, rounding=ROUND_HALF_UP)
+    return dict(price=str(vehicle.price), deposit=str(deposit), refund=str(refund))
+
+
+def hold_quote(vehicle, customer_id, days):
+    if not vehicle or not vehicle.is_published or vehicle.stock_quantity < 1:
+        raise ReservationError("Vehicle unavailable", 409)
+    if not settings.RESERVATION_MIN_HOLD_DAYS <= days <= settings.RESERVATION_MAX_HOLD_DAYS:
+        raise ReservationError("Choose a supported hold period", 422)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    terms = dict(**hold_amounts(vehicle), days=days, vehicle=vehicle.vehicle_id, buyer=customer_id,
+                 expires_at=(now + timedelta(days=days)).isoformat())
+    token = jwt.encode(dict(**terms, aud="hold-quote", exp=now + timedelta(minutes=10)),
+                       settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return dict(**terms, token=token)
+
+
+def quoted_deadline(token, vehicle, customer_id, days):
+    try:
+        terms = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM], audience="hold-quote")
+        expected = dict(**hold_amounts(vehicle), vehicle=vehicle.vehicle_id, buyer=customer_id, days=days, aud="hold-quote")
+        if any(terms.get(k) != v for k, v in expected.items()):
+            raise ValueError()
+        return datetime.fromisoformat(terms["expires_at"]).astimezone(timezone.utc).replace(tzinfo=None)
+    except (JWTError, ValueError, KeyError) as exc:
+        raise ReservationError("Hold terms changed or expired. Review the new quote before paying.", 409) from exc
+
+
 def reserve(
     db: Session,
     customer_id: int,
@@ -44,6 +78,7 @@ def reserve(
     hold_days: int,
     password: str,
     idempotency_key: str,
+    quote_token: str | None = None,
 ) -> Reservation:
     """Reserve a car per spec 7.2.
 
@@ -81,6 +116,8 @@ def reserve(
                 Reservation.reservation_id == existing_txn.reservation_id
             ).first()
             if existing_res:
+                if (existing_res.customer_id, existing_res.vehicle_id, existing_res.hold_days) != (customer_id, vehicle_id, hold_days):
+                    raise ReservationError("Payment reference belongs to another reservation", 409)
                 return existing_res
 
     # Validate hold_days
@@ -128,9 +165,7 @@ def reserve(
         raise ReservationError("You already have an active reservation for this vehicle", 409)
 
     # 4c. Calculate deposit
-    deposit = (vehicle.price * settings.RESERVATION_DEPOSIT_PERCENT / 100).quantize(
-        Decimal("0.01"), rounding=ROUND_HALF_UP
-    )
+    deposit = Decimal(hold_amounts(vehicle)["deposit"])
 
     # 4d. Lock bank account (LAST in lock order)
     bank_acct = (
@@ -147,7 +182,7 @@ def reserve(
     # 4e. Insert reservation BEFORE decrementing stock
     # (so the trigger sees the active reservation and sets status 'Reserved')
     now = utcnow()
-    expires_at = now + timedelta(days=hold_days)
+    expires_at = quoted_deadline(quote_token, vehicle, customer_id, hold_days) if quote_token else now + timedelta(days=hold_days)
     vehicle_label = f"{vehicle.year} {vehicle.make} {vehicle.model}"
 
     reservation = Reservation(
@@ -162,6 +197,7 @@ def reserve(
     )
     db.add(reservation)
     db.flush()  # Get reservation_id
+    deal = reserve_unit(db, reservation)
 
     # 4f. Debit bank account
     new_balance = bank_acct.balance - deposit
@@ -201,7 +237,7 @@ def reserve(
         message=f"Your reservation for the {vehicle_label} has been confirmed. "
                 f"Deposit of ${deposit:,.2f} has been charged. "
                 f"Your hold expires on {expires_at.strftime('%b %d, %Y')}.",
-        link_path="/account/reservations",
+        link_path=f"/account/deals/{deal.deal_id}",
         vehicle_label=vehicle_label,
         deposit=f"${deposit:,.2f}",
         expires_at=expires_at.strftime("%b %d, %Y"),
@@ -428,6 +464,7 @@ def _close_reservation(
         raise ReservationError("Reservation refund requires a customer bank account", 409)
 
     # Update reservation status
+    deal = release_unit(db, reservation.reservation_id, new_status)
     reservation.status = new_status
     reservation.closed_at = now
 
@@ -486,7 +523,7 @@ def _close_reservation(
                 f"${refund_amount:,.2f} has been refunded to your account "
                 f"(${fee_amount:,.2f} cancellation fee)."
             ),
-            link_path="/account/reservations",
+            link_path=f"/account/deals/{deal.deal_id}",
             vehicle_label=vehicle_label,
             refund_amount=f"${refund_amount:,.2f}",
         )
@@ -501,7 +538,7 @@ def _close_reservation(
                 f"${refund_amount:,.2f} has been refunded to your account "
                 f"(${fee_amount:,.2f} cancellation fee)."
             ),
-            link_path="/account/reservations",
+            link_path=f"/account/deals/{deal.deal_id}",
             vehicle_label=vehicle_label,
             refund_amount=f"${refund_amount:,.2f}",
         )

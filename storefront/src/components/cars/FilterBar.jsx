@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 /**
  * FilterBar — filter controls for the inventory page.
@@ -9,7 +9,6 @@ export default function FilterBar({
   filters,
   filterOptions,
   onFiltersChange,
-  isLoading = false,
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -54,6 +53,7 @@ export default function FilterBar({
           <input
             type="text"
             placeholder="Search make, model, or keyword…"
+            aria-label="Search vehicle inventory"
             value={filters.q || ''}
             onChange={(e) => handleChange('q', e.target.value)}
             className={`${inputClasses} pl-9`}
@@ -63,6 +63,7 @@ export default function FilterBar({
         {/* Sort */}
         <select
           value={filters.sort || 'newest'}
+          aria-label="Sort vehicles"
           onChange={(e) => handleChange('sort', e.target.value)}
           className={`${selectClasses} sm:w-44`}
         >
@@ -74,6 +75,7 @@ export default function FilterBar({
 
         {/* Toggle filters */}
         <button
+          aria-expanded={isExpanded}
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex items-center gap-2 px-4 py-2 bg-bg-elevated border border-bg-border rounded-lg text-sm text-text-secondary hover:text-text-primary transition-colors"
         >
@@ -93,8 +95,9 @@ export default function FilterBar({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Make */}
             <div>
-              <label className="block text-xs text-text-muted mb-1">Make</label>
+              <label htmlFor="catalog-make" className="block text-xs text-text-secondary mb-1">Make</label>
               <select
+                id="catalog-make"
                 value={filters.make || ''}
                 onChange={(e) => handleChange('make', e.target.value)}
                 className={selectClasses}
@@ -108,8 +111,9 @@ export default function FilterBar({
 
             {/* Body Type */}
             <div>
-              <label className="block text-xs text-text-muted mb-1">Body Type</label>
+              <label htmlFor="catalog-body_type" className="block text-xs text-text-secondary mb-1">Body Type</label>
               <select
+                id="catalog-body_type"
                 value={filters.body_type || ''}
                 onChange={(e) => handleChange('body_type', e.target.value)}
                 className={selectClasses}
@@ -123,8 +127,9 @@ export default function FilterBar({
 
             {/* Fuel Type */}
             <div>
-              <label className="block text-xs text-text-muted mb-1">Fuel Type</label>
+              <label htmlFor="catalog-fuel_type" className="block text-xs text-text-secondary mb-1">Fuel Type</label>
               <select
+                id="catalog-fuel_type"
                 value={filters.fuel_type || ''}
                 onChange={(e) => handleChange('fuel_type', e.target.value)}
                 className={selectClasses}
@@ -138,8 +143,9 @@ export default function FilterBar({
 
             {/* Condition */}
             <div>
-              <label className="block text-xs text-text-muted mb-1">Condition</label>
+              <label htmlFor="catalog-condition_type" className="block text-xs text-text-secondary mb-1">Condition</label>
               <select
+                id="catalog-condition_type"
                 value={filters.condition_type || ''}
                 onChange={(e) => handleChange('condition_type', e.target.value)}
                 className={selectClasses}
@@ -153,20 +159,22 @@ export default function FilterBar({
 
             {/* Year range */}
             <div>
-              <label className="block text-xs text-text-muted mb-1">Year (Min)</label>
+              <label htmlFor="catalog-year_min" className="block text-xs text-text-secondary mb-1">Year (Min)</label>
               <input
                 type="number"
                 placeholder={filterOptions?.year_min || 'Min'}
+                id="catalog-year_min"
                 value={filters.year_min || ''}
                 onChange={(e) => handleChange('year_min', e.target.value)}
                 className={inputClasses}
               />
             </div>
             <div>
-              <label className="block text-xs text-text-muted mb-1">Year (Max)</label>
+              <label htmlFor="catalog-year_max" className="block text-xs text-text-secondary mb-1">Year (Max)</label>
               <input
                 type="number"
                 placeholder={filterOptions?.year_max || 'Max'}
+                id="catalog-year_max"
                 value={filters.year_max || ''}
                 onChange={(e) => handleChange('year_max', e.target.value)}
                 className={inputClasses}
@@ -175,20 +183,22 @@ export default function FilterBar({
 
             {/* Price range */}
             <div>
-              <label className="block text-xs text-text-muted mb-1">Price (Min)</label>
+              <label htmlFor="catalog-price_min" className="block text-xs text-text-secondary mb-1">Price (Min)</label>
               <input
                 type="number"
                 placeholder="$0"
+                id="catalog-price_min"
                 value={filters.price_min || ''}
                 onChange={(e) => handleChange('price_min', e.target.value)}
                 className={inputClasses}
               />
             </div>
             <div>
-              <label className="block text-xs text-text-muted mb-1">Price (Max)</label>
+              <label htmlFor="catalog-price_max" className="block text-xs text-text-secondary mb-1">Price (Max)</label>
               <input
                 type="number"
                 placeholder="No max"
+                id="catalog-price_max"
                 value={filters.price_max || ''}
                 onChange={(e) => handleChange('price_max', e.target.value)}
                 className={inputClasses}

@@ -1,3 +1,4 @@
+import ModalOverlay from '../../components/common/ModalOverlay';
 /**
  * RestockPriorityPage — staff view showing out-of-stock vehicles ranked by
  * number of customer restock requests. Staff can restock a vehicle (add quantity).
@@ -241,7 +242,7 @@ export default function RestockPriorityPage() {
 
       {/* Restock Modal */}
       {restockTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <ModalOverlay onDismiss={handleCloseRestock} aria-label="Restock vehicle" className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -259,10 +260,10 @@ export default function RestockPriorityPage() {
 
             {/* Quantity input */}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-text-secondary mb-2">
+              <label htmlFor="restockprioritypage-quantity-to-add" className="block text-sm font-medium text-text-secondary mb-2">
                 Quantity to add
               </label>
-              <input
+              <input id="restockprioritypage-quantity-to-add"
                 type="number"
                 min="1"
                 value={quantity}
@@ -311,7 +312,7 @@ export default function RestockPriorityPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
 

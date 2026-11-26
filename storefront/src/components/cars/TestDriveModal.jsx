@@ -1,9 +1,10 @@
+import ModalOverlay from '../common/ModalOverlay';
 /**
  * TestDriveModal — slot picker for booking test drives from CarDetailPage.
  * Per spec 7.3 and 11.4: date picker (today+2h to +30 days, Mon–Sat),
  * hourly slots 09:00–17:00, shows available/taken, notes field.
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTestDriveSlots } from '../../api/publicApi';
 import * as storeApi from '../../api/storeApi';
@@ -42,7 +43,6 @@ function formatDateLabel(d) {
 
 export default function TestDriveModal({ isOpen, onClose, vehicle }) {
   const navigate = useNavigate();
-  const overlayRef = useRef(null);
 
   const [validDates] = useState(getValidDates);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -86,15 +86,7 @@ export default function TestDriveModal({ isOpen, onClose, vehicle }) {
     fetchSlots();
   }, [isOpen, selectedDate, vehicle]);
 
-  // Close on Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleEsc = (e) => {
-      if (e.key === 'Escape' && !success) onClose();
-    };
-    document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
-  }, [isOpen, onClose, success]);
+
 
   if (!isOpen || !vehicle) return null;
 
@@ -122,14 +114,11 @@ export default function TestDriveModal({ isOpen, onClose, vehicle }) {
   };
 
   return (
-    <div
-      ref={overlayRef}
+    <ModalOverlay onDismiss={submitting ? undefined : onClose} aria-label="Book a test drive"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto"
       onClick={(e) => {
-        if (e.target === overlayRef.current && !success) onClose();
+        if (e.target === e.currentTarget && !success) onClose();
       }}
-      role="dialog"
-      aria-modal="true"
     >
       <div className="bg-bg-card border border-bg-border rounded-2xl shadow-2xl max-w-lg w-full my-4">
         {/* Success state */}
@@ -341,6 +330,6 @@ export default function TestDriveModal({ isOpen, onClose, vehicle }) {
           </form>
         )}
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

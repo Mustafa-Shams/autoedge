@@ -5,6 +5,7 @@
  * Shows all outgoing emails with status: Queued / Sent / Suppressed / Failed.
  * Status filter tabs, paginated table with customer info and error details.
  */
+import { Link } from "react-router-dom";
 import { Fragment, useState, useEffect, useCallback } from 'react';
 import { getEmailLog, retryEmail, sendTestEmail } from '../../api/emailLogApi';
 import { apiError } from '../../utils/apiError';
@@ -305,6 +306,7 @@ export default function EmailLogPage() {
                         <td className="px-4 py-3">
                           <p className="text-sm text-text-primary truncate max-w-[250px]">
                             {e.subject}
+                            {e.deal_id && <Link className="ml-2 underline" onClick={event => event.stopPropagation()} to={`/deals/${e.deal_id}`}>Deal #{e.deal_id}</Link>}
                           </p>
                         </td>
                         <td className="px-4 py-3">

@@ -82,6 +82,8 @@ export default function CarCard({
               : 'bg-black/40 text-white/70 hover:text-white hover:bg-black/60'
           }`}
           title={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+          aria-label={`${isWishlisted ? 'Remove' : 'Save'} ${year} ${make} ${model} ${isWishlisted ? 'from' : 'to'} wishlist`}
+          aria-pressed={isWishlisted}
         >
           <svg className="w-4 h-4" fill={isWishlisted ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
@@ -135,13 +137,14 @@ export default function CarCard({
             {/* Compare checkbox */}
             {onToggleCompare && (
               <label
-                className={`flex items-center gap-1 text-xs cursor-pointer ${
+                className={`flex items-center gap-1 text-xs rounded focus-within:ring-2 focus-within:ring-accent-blue cursor-pointer ${
                   isCompareSelected ? 'text-accent-blue' : 'text-text-muted hover:text-text-secondary'
                 } ${compareDisabled && !isCompareSelected ? 'opacity-40 cursor-not-allowed' : ''}`}
                 title={compareDisabled && !isCompareSelected ? 'Max 3 cars to compare' : 'Compare'}
               >
                 <input
                   type="checkbox"
+                  aria-label={`Compare ${year} ${make} ${model}`}
                   checked={isCompareSelected}
                   onChange={() => onToggleCompare(vehicle_id)}
                   disabled={compareDisabled && !isCompareSelected}
@@ -156,7 +159,9 @@ export default function CarCard({
         </div>
 
         {/* Out-of-stock: Request this car */}
-        {isOutOfStock && (
+        {!isOutOfStock && <Link className="mt-3 block rounded-lg bg-[#285bcf] px-3 py-2 text-center text-sm font-semibold text-white" to={`/account/checkout/${vehicle_id}`}>Buy now</Link>}
+        {isOutOfStock && !onRequestRestock && <Link to={`/cars/${vehicle_id}`} className="mt-3 block text-accent-blue">View restock options</Link>}
+        {isOutOfStock && onRequestRestock && (
           <div className="mt-3">
             {restockRequested ? (
               <div className="text-center">

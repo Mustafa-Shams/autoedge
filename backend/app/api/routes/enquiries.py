@@ -93,6 +93,8 @@ def _enquiry_to_dict(e: Enquiry) -> dict:
 
     return {
         "enquiry_id": e.enquiry_id,
+        "sale_id": e.sale_id,
+        "deal_id": e.deal_id,
         "subject": e.subject,
         "status": e.status,
         "vehicle_id": e.vehicle_id,

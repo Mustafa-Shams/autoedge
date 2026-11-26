@@ -7,6 +7,7 @@ from app.core.time import utcnow
 class TradeInRequest(Base):
     __tablename__ = "trade_in_requests"
 
+    deal_id = Column(Integer, ForeignKey("deals.deal_id", ondelete="SET NULL", use_alter=True, name="fk_trade_request_deal"), index=True)
     trade_in_id = Column(Integer, primary_key=True, index=True)
     customer_id = Column(Integer, ForeignKey("customers.customer_id", ondelete="CASCADE"), nullable=False)
     target_vehicle_id = Column(Integer, ForeignKey("vehicles.vehicle_id", ondelete="SET NULL"))
@@ -32,6 +33,7 @@ class TradeInRequest(Base):
     customer = relationship("Customer", back_populates="trade_in_requests")
     target_vehicle = relationship("Vehicle")
     appraiser = relationship("User")
+    acquisition = relationship("TradeAcquisition", back_populates="trade", uselist=False)
     images = relationship("TradeInImage", back_populates="trade_in", cascade="all, delete-orphan")
     sales = relationship("Sale", back_populates="trade_in")
 

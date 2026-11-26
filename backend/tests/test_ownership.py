@@ -16,8 +16,6 @@ import pytest
 from decimal import Decimal
 from datetime import timedelta
 
-# Use SQLite for tests
-os.environ["DATABASE_URL"] = "sqlite:///./test_ownership.db"
 os.environ["SECRET_KEY"] = "test-secret-key-ownership"
 os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"
@@ -26,7 +24,6 @@ os.environ["CORS_ORIGINS"] = "http://localhost:5173"
 from fastapi.testclient import TestClient
 from app.main import app  # noqa: E402
 from app.db.session import engine, SessionLocal
-from app.db.base import Base
 from app.core.security import hash_password, create_access_token
 from app.core.time import utcnow
 from app.models.customer import Customer
@@ -34,14 +31,12 @@ from app.models.customer_account import CustomerAccount
 from app.models.bank_account import BankAccount
 from app.models.bank_transaction import BankTransaction
 from app.models.vehicle import Vehicle
+from app.models.deal import Deal, InventoryUnit
 from app.models.reservation import Reservation
 from app.models.stock_movement import StockMovement
 from app.models.trade_in_request import TradeInRequest
 from app.models.customer_vehicle import CustomerVehicle
 
-# Recreate tables fresh
-Base.metadata.drop_all(bind=engine)
-Base.metadata.create_all(bind=engine)
 
 client = TestClient(app)
 
@@ -55,7 +50,7 @@ def _setup_data():
     db = SessionLocal()
     try:
         # Clear everything - order matters for FK constraints
-        for model in [StockMovement, BankTransaction, Reservation, TradeInRequest,
+        for model in [Deal, InventoryUnit, StockMovement, BankTransaction, Reservation, TradeInRequest,
                       CustomerVehicle, BankAccount, CustomerAccount, Customer, Vehicle]:
             db.query(model).delete()
         db.commit()

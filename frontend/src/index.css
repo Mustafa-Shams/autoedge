@@ -40,3 +40,7 @@
     @apply w-full bg-bg-elevated border border-bg-border text-text-primary rounded-lg px-3 py-2 text-sm placeholder-text-muted focus:outline-none focus:border-accent-blue transition-colors;
   }
 }
+
+:focus-visible { outline: 2px solid #85aaff; outline-offset: 2px; }
+
+:where(dialog) { background-color: transparent; }

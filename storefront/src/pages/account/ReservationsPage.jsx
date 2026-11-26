@@ -228,6 +228,9 @@ export default function ReservationsPage() {
                       >
                         View Receipt →
                       </Link>
+                      {res.deal_id && <Link className="underline" to={`/account/deals/${res.deal_id}`}>Deal #{res.deal_id}</Link>}
+                      {isActive && <Link className="font-semibold text-accent-blue" to={`/account/checkout/${res.vehicle_id}?reservation=${res.reservation_id}`}>Complete purchase</Link>}
+                      {res.status === 'Converted' && <Link to="/account/purchases" className="font-semibold text-accent-blue">My purchases</Link>}
 
                       {isActive && (
                         <button

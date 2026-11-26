@@ -4,6 +4,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models.commission import Commission
+from app.models.sales_assistance import SalesAssistance
 from app.models.user import User
 from app.models.sale import Sale
 from app.models.vehicle import Vehicle
@@ -14,6 +15,8 @@ def _enrich(c: Commission, db: Session) -> Commission:
     """Attach human-readable display fields onto the commission object."""
     staff = db.query(User).filter(User.user_id == c.staff_id).first()
     c.staff_name = staff.full_name if staff else None
+    evidence = db.query(SalesAssistance).filter_by(sale_id=c.sale_id).one_or_none()
+    c.earned_for = f"{evidence.kind} · {evidence.note}" if evidence else "Historical sale attribution"
     sale = db.query(Sale).filter(Sale.sale_id == c.sale_id).first()
     if sale:
         v = db.query(Vehicle).filter(Vehicle.vehicle_id == sale.vehicle_id).first()

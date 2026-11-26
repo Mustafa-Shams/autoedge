@@ -8,7 +8,7 @@
   --color-bg-border: #2A2D3E;
   --color-text-primary: #E8EAF0;
   --color-text-secondary: #8B90A7;
-  --color-text-muted: #4A4F6A;
+  --color-text-muted: #9297AD;
   --color-accent-blue: #4D7FFF;
   --color-accent-blue-hover: #3D6FEF;
   --color-status-available: #22C55E;
@@ -36,3 +36,5 @@ body {
   outline: 2px solid #4D7FFF;
   outline-offset: 2px;
 }
+
+:where(dialog) { background-color: transparent; }

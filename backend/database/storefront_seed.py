@@ -29,6 +29,7 @@ from app.core.security import hash_password
 from app.core.time import utcnow
 from app.db.session import engine, SessionLocal
 from app.models import *  # noqa — ensure all models loaded
+from app.services.deal_service import adjust_units, reserve_unit
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -315,6 +316,7 @@ def seed(db: Session, *, with_images: bool = False):
             Vehicle.year == vdata["year"],
         ).first()
         if vehicle:
+            adjust_units(db, vehicle.vehicle_id, vdata["stock_quantity"] - vehicle.stock_quantity)
             for key, val in vdata.items():
                 if key not in ("make", "model", "year"):
                     setattr(vehicle, key, val)
@@ -335,6 +337,7 @@ def seed(db: Session, *, with_images: bool = False):
         if existing:
             print(f"  Already exists: {vdata['make']} {vdata['model']} {vdata['year']}")
             # Update fields anyway
+            adjust_units(db, existing.vehicle_id, vdata["stock_quantity"] - existing.stock_quantity)
             for key, val in vdata.items():
                 setattr(existing, key, val)
         else:
@@ -703,6 +706,7 @@ def seed(db: Session, *, with_images: bool = False):
                 )
                 db.add(res)
                 db.flush()
+                reserve_unit(db, res)
 
                 # Debit bank
                 bank.balance -= deposit

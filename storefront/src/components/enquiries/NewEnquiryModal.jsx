@@ -1,3 +1,4 @@
+import ModalOverlay from '../common/ModalOverlay';
 /**
  * NewEnquiryModal — create a new enquiry thread per spec 7.5.
  * Supports optional pre-filled vehicle_id and subject (for "Ask about finance" etc).
@@ -64,7 +65,7 @@ export default function NewEnquiryModal({ isOpen, onClose, onCreated, vehicleId 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <ModalOverlay onDismiss={submitting ? undefined : onClose} aria-label="New enquiry" className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -149,6 +150,6 @@ export default function NewEnquiryModal({ isOpen, onClose, onCreated, vehicleId 
           </div>
         </form>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

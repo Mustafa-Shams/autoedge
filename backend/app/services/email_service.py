@@ -8,6 +8,7 @@ Provider selection via EMAIL_PROVIDER setting:
   - "brevo":    Brevo HTTPS API (POST https://api.brevo.com/v3/smtp/email)
   - "sendgrid": SendGrid HTTPS API (POST https://api.sendgrid.com/v3/mail/send)
 """
+from html import escape
 import logging
 from dataclasses import dataclass
 
@@ -17,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.time import utcnow
 from app.models.email_outbox import EmailOutbox
+from app.services.email_templates import get_email_content
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +148,19 @@ async def send(db: Session, email_id: int, *, retry: bool = False) -> DeliveryRe
         detail = "Email suppressed for a demo or test address."
     else:
         try:
+            if email.render_context:
+                context = email.render_context.copy()
+                path = context.pop("activity_path", None)
+                fallback = context.pop("fallback_message", None)
+                content = get_email_content(**context)
+                if content:
+                    subject, email.body_html = content
+                    email.subject = subject[:200]
+                elif fallback is not None:
+                    email.body_html = f"<p>{escape(fallback)}</p>"
+                    if path:
+                        url = escape(context["store_url"] + path, quote=True)
+                        email.body_html += f'<a href="{url}">View details</a>'
             recipient_name = email.customer.full_name if email.customer else None
             response = await PROVIDERS[settings.EMAIL_PROVIDER.lower()](
                 email.to_email, recipient_name or email.to_email, email.subject, email.body_html,

@@ -7,9 +7,12 @@ from app.core.time import utcnow
 class Enquiry(Base):
     __tablename__ = "enquiries"
 
+    deal_id = Column(Integer, ForeignKey("deals.deal_id", ondelete="SET NULL"), index=True)
     enquiry_id = Column(Integer, primary_key=True, index=True)
+    sale_id = Column(Integer, ForeignKey("sales.sale_id"), unique=True)
     customer_id = Column(Integer, ForeignKey("customers.customer_id", ondelete="CASCADE"), nullable=False)
     vehicle_id = Column(Integer, ForeignKey("vehicles.vehicle_id", ondelete="SET NULL"))
+    category = Column(Text)
     subject = Column(String(150), nullable=False)
     status = Column(String(10), nullable=False, default="Open")
     assigned_to = Column(Integer, ForeignKey("users.user_id"))

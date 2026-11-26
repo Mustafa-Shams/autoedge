@@ -35,6 +35,7 @@ export default function ComparePage() {
   const { compareIds, clear, toggle } = useCompare();
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [retry, setRetry] = useState(0);
   const [error, setError] = useState(null);
 
   // Get IDs from query string or from compare hook
@@ -44,10 +45,10 @@ export default function ComparePage() {
   // Handle removing a vehicle
   const handleRemove = (vehicleId) => {
     // Remove from localStorage
-    toggle(vehicleId);
+    if (compareIds.includes(vehicleId)) toggle(vehicleId);
     // Update URL
     const remaining = ids.filter((id) => id !== vehicleId);
-    if (remaining.length >= 2) {
+    if (remaining.length) {
       setSearchParams({ ids: remaining.join(',') });
     } else {
       // Less than 2 — clear URL params
@@ -62,7 +63,10 @@ export default function ComparePage() {
   };
 
   useEffect(() => {
+    let active = true;
     if (ids.length < 2) {
+      setError(null);
+      setLoading(false);
       setVehicles([]);
       return;
     }
@@ -72,15 +76,16 @@ export default function ComparePage() {
         setLoading(true);
         setError(null);
         const res = await compareVehicles(ids.join(','));
-        setVehicles(res.data);
+        if (active) setVehicles(res.data);
       } catch (err) {
-        setError(err.response?.data?.detail || 'Failed to load comparison');
+        if (active) setError(err.response?.data?.detail || 'Failed to load comparison');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     fetchData();
-  }, [ids.join(',')]);
+    return () => { active = false; };
+  }, [ids.join(','), retry]);
 
   if (loading) return <LoadingSpinner fullPage text="Loading comparison…" />;
 
@@ -105,7 +110,7 @@ export default function ComparePage() {
 
       {error && (
         <div className="bg-status-cancelled/10 border border-status-cancelled/20 rounded-xl p-4 mb-6">
-          <p className="text-sm text-status-cancelled">{error}</p>
+          <p className="text-sm text-status-cancelled">{error} <button className="underline" onClick={() => setRetry(n => n + 1)}>Retry</button></p>
         </div>
       )}
 
@@ -154,6 +159,7 @@ export default function ComparePage() {
                         </div>
                         <div className="mt-2">
                           <StockBadge stock={v.stock_quantity} />
+                          <Link className="block mt-2 text-sm text-accent-blue underline" to={v.stock_quantity > 0 ? `/account/checkout/${v.vehicle_id}` : `/cars/${v.vehicle_id}`}>{v.stock_quantity > 0 ? 'Buy now' : 'View restock options'}</Link>
                         </div>
                         <button
                           onClick={() => handleRemove(v.vehicle_id)}

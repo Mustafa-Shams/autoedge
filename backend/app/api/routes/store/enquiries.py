@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, field_validator
 from sqlalchemy.orm import Session, joinedload
 
+from app.services.deal_service import interest_id
 from app.api.deps import get_db, get_current_customer
 from app.core.time import utcnow
 from app.models.customer_account import CustomerAccount
@@ -91,6 +92,7 @@ class VehicleRef(BaseModel):
 class EnquiryListItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     enquiry_id: int
+    sale_id: Optional[int] = None
     subject: str
     status: str
     vehicle_id: Optional[int] = None
@@ -128,6 +130,8 @@ def _to_list_item(e: Enquiry) -> dict:
         }
     return {
         "enquiry_id": e.enquiry_id,
+        "sale_id": e.sale_id,
+        "deal_id": e.deal_id,
         "subject": e.subject,
         "status": e.status,
         "vehicle_id": e.vehicle_id,
@@ -172,6 +176,7 @@ async def create_enquiry(
 
     now = utcnow()
     enquiry = Enquiry(
+        deal_id=interest_id(db, account.customer_id, body.vehicle_id),
         customer_id=account.customer_id,
         vehicle_id=body.vehicle_id,
         subject=body.subject.strip(),

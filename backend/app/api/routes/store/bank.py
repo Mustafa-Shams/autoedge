@@ -9,6 +9,8 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.models.deal import Deal
+from sqlalchemy import or_
 from app.api.deps import get_db, get_current_customer
 from app.models.bank_account import BankAccount
 from app.models.customer import Customer
@@ -84,10 +86,17 @@ async def get_transactions(
         txn_type=txn_type,
     )
 
+    sale_ids = [t.sale_id for t in result["items"] if t.sale_id]
+    holds = [t.reservation_id for t in result["items"] if t.reservation_id]
+    deals = db.query(Deal).filter(Deal.customer_id == account.customer_id,
+                                  or_(Deal.sale_id.in_(sale_ids), Deal.reservation_id.in_(holds))).all()
+    by_sale = {d.sale_id: d.deal_id for d in deals if d.sale_id}
+    by_hold = {d.reservation_id: d.deal_id for d in deals if d.reservation_id}
     return BankStatementResponse(
         items=[
             BankTransactionResponse(
                 txn_id=txn.txn_id,
+                deal_id=by_sale.get(txn.sale_id) or by_hold.get(txn.reservation_id),
                 txn_type=txn.txn_type,
                 direction=txn.direction,
                 amount=txn.amount,
@@ -96,6 +105,7 @@ async def get_transactions(
                 description=txn.description,
                 reservation_id=txn.reservation_id,
                 service_booking_id=txn.service_booking_id,
+                sale_id=txn.sale_id,
                 created_at=txn.created_at,
             )
             for txn in result["items"]

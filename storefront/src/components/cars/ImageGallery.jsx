@@ -69,6 +69,8 @@ export default function ImageGallery({ images = [], vehicleName = 'Vehicle' }) {
             <button
               key={img.image_id || idx}
               onClick={() => setActiveIndex(idx)}
+              aria-label={`View photo ${idx + 1} of ${vehicleName}`}
+              aria-pressed={idx === activeIndex}
               className={`flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
                 idx === activeIndex ? 'border-accent-blue' : 'border-transparent hover:border-bg-border'
               }`}

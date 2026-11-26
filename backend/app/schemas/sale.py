@@ -36,7 +36,19 @@ class SaleResponse(SaleBase):
     model_config = ConfigDict(from_attributes=True)
 
     sale_id: int
+    deal_id: int | None = None
+    commission_details: dict | None = None
+    staff_id: Optional[int] = None
     sale_date: datetime
+    pickup_status: Optional[str] = None
+    refund_requested: bool = False
+    payment_verified: bool = False
+    excess_at_pickup: Decimal = Decimal("0")
+    cash_received: Optional[Decimal] = None
+    external_funding: Optional[Decimal] = None
+    pickup_deadline: Optional[datetime] = None
+    enquiry_id: Optional[int] = None
+    unit_id: Optional[int] = None
     # Storefront additions
     reservation_id: Optional[int] = None
     trade_in_id: Optional[int] = None

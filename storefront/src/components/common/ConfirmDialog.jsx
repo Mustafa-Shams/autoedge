@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import ModalOverlay from './ModalOverlay';
+
 
 /**
  * ConfirmDialog — modal dialog for confirming destructive actions.
@@ -15,26 +16,6 @@ export default function ConfirmDialog({
   variant = 'danger', // 'danger' | 'warning' | 'info'
   isLoading = false,
 }) {
-  const overlayRef = useRef(null);
-  const confirmBtnRef = useRef(null);
-
-  // Focus the confirm button when the dialog opens
-  useEffect(() => {
-    if (isOpen && confirmBtnRef.current) {
-      confirmBtnRef.current.focus();
-    }
-  }, [isOpen]);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleEsc = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
-  }, [isOpen, onClose]);
-
   if (!isOpen) return null;
 
   const variantStyles = {
@@ -50,15 +31,11 @@ export default function ConfirmDialog({
   };
 
   return (
-    <div
-      ref={overlayRef}
+    <ModalOverlay onDismiss={isLoading ? undefined : onClose} aria-label={title}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={(e) => {
-        if (e.target === overlayRef.current) onClose();
+        if (!isLoading && e.target === e.currentTarget) onClose();
       }}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-dialog-title"
     >
       <div className="bg-bg-card border border-bg-border rounded-xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
         {/* Icon */}
@@ -98,7 +75,6 @@ export default function ConfirmDialog({
             {cancelLabel}
           </button>
           <button
-            ref={confirmBtnRef}
             onClick={onConfirm}
             disabled={isLoading}
             className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${variantStyles[variant]}`}
@@ -110,6 +86,6 @@ export default function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

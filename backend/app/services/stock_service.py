@@ -13,6 +13,7 @@ from app.models.reservation import Reservation
 from app.models.stock_movement import StockMovement
 from app.models.restock_request import RestockRequest
 from app.services.notify_service import notify
+from app.services.deal_service import adjust_units
 
 
 def get_vehicle_for_update(db: Session, vehicle_id: int) -> Optional[Vehicle]:
@@ -20,6 +21,7 @@ def get_vehicle_for_update(db: Session, vehicle_id: int) -> Optional[Vehicle]:
     return (
         db.query(Vehicle)
         .filter(Vehicle.vehicle_id == vehicle_id)
+        .populate_existing()
         .with_for_update()
         .first()
     )
@@ -62,6 +64,7 @@ def change_stock(
         raise ValueError(f"Stock cannot go below zero (current={old_stock}, change={qty_change})")
 
     vehicle.stock_quantity = new_stock
+    adjust_units(db, vehicle_id, qty_change)
 
     # Write stock movement ledger entry
     movement = StockMovement(

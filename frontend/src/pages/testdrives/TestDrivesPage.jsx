@@ -1,5 +1,8 @@
+import ModalOverlay from '../../components/common/ModalOverlay';
+import { useAuth } from "../../hooks/useAuth";
+import { hasModuleAccess } from "../../utils/staffAccess";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Filter, Globe, Monitor, Check, X, Clock } from "lucide-react";
 import { testDrivesApi } from "../../api/testDrivesApi";
@@ -37,6 +40,10 @@ function timeUntilExpiry(expiresAt) {
 
 export default function TestDrivesPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canWrite = hasModuleAccess(user, "test_drives", true);
+  const [params] = useSearchParams();
+  const record = params.get("id");
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState("");
   const [leadFilter, setLeadFilter] = useState("");
@@ -44,9 +51,9 @@ export default function TestDrivesPage() {
   const [declineId, setDeclineId] = useState(null);
   const [declineReason, setDeclineReason] = useState("");
 
-  const { data: testDrives = [], isLoading } = useQuery({
-    queryKey: ["test-drives", statusFilter, leadFilter, page],
-    queryFn: () =>
+  const { data: testDrives = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ["test-drives", record, statusFilter, leadFilter, page],
+    queryFn: () => record ? testDrivesApi.get(record).then(row => [row]) :
       testDrivesApi.list({
         skip: (page - 1) * PAGE_SIZE,
         limit: PAGE_SIZE,
@@ -136,7 +143,7 @@ export default function TestDrivesPage() {
       label: "Actions",
       width: 180,
       render: (_, row) => {
-        if (row.status !== "Requested") return null;
+        if (!canWrite || row.status !== "Requested") return null;
         return (
           <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
             <button
@@ -162,6 +169,8 @@ export default function TestDrivesPage() {
   return (
 
       <div className="space-y-5">
+        {isError && <p role="alert">Could not load this record. <button className="underline" onClick={() => refetch()}>Retry</button></p>}
+        {record && <Link className="underline" to="/test-drives">View all records</Link>}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-text-primary">
@@ -171,12 +180,12 @@ export default function TestDrivesPage() {
               Manage test drive bookings and online requests
             </p>
           </div>
-          <button
+          {canWrite && <button
             onClick={() => navigate("/test-drives/new")}
             className="flex items-center gap-2 bg-accent-blue hover:bg-accent-blueHover text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
           >
             <Plus className="w-4 h-4" /> Book Test Drive
-          </button>
+          </button>}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
@@ -242,14 +251,14 @@ export default function TestDrivesPage() {
             totalPages={totalPages}
             onPageChange={setPage}
             onRowClick={(row) =>
-              navigate(`/test-drives/${row.test_drive_id}/edit`)
+              navigate(canWrite ? `/test-drives/${row.test_drive_id}/edit` : `/test-drives?id=${row.test_drive_id}`)
             }
           />
         )}
 
         {/* Decline reason modal */}
         {declineId && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setDeclineId(null)}>
+          <ModalOverlay onDismiss={() => setDeclineId(null)} aria-label="Decline test drive" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setDeclineId(null)}>
             <div
               className="bg-bg-card border border-bg-border rounded-xl p-6 w-full max-w-md space-y-4"
               onClick={(e) => e.stopPropagation()}
@@ -287,7 +296,7 @@ export default function TestDrivesPage() {
                 </button>
               </div>
             </div>
-          </div>
+          </ModalOverlay>
         )}
       </div>
 

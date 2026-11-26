@@ -7,6 +7,7 @@ import { staffHome } from "../utils/staffAccess";
 import ChangePasswordPage from "../pages/auth/ChangePasswordPage";
 import LoginPage from "../pages/auth/LoginPage";
 import DashboardPage from "../pages/dashboard/DashboardPage";
+import TodayPage from "../pages/dashboard/TodayPage";
 import VehiclesPage from "../pages/vehicles/VehiclesPage";
 import VehicleDetailPage from "../pages/vehicles/VehicleDetailPage";
 import VehicleFormPage from "../pages/vehicles/VehicleFormPage";
@@ -14,6 +15,7 @@ import CustomersPage from "../pages/customers/CustomersPage";
 import CustomerFormPage from "../pages/customers/CustomerFormPage";
 import TestDrivesPage from "../pages/testdrives/TestDrivesPage";
 import TestDriveFormPage from "../pages/testdrives/TestDriveFormPage";
+import DealsPage from "../pages/sales/DealsPage";
 import SalesPage from "../pages/sales/SalesPage";
 import SaleFormPage from "../pages/sales/SaleFormPage";
 import ServicePage from "../pages/service/ServicePage";
@@ -50,6 +52,8 @@ const staffRoutes = [
   ["/test-drives", TestDrivesPage, MANAGER_SALES_RECEP, "test_drives"],
   ["/test-drives/new", TestDriveFormPage, MANAGER_SALES_RECEP, "test_drives", true],
   ["/test-drives/:id/edit", TestDriveFormPage, MANAGER_SALES_RECEP, "test_drives", true],
+  ["/deals", DealsPage, MANAGER_SALES, "sales"],
+  ["/deals/:id", DealsPage, MANAGER_SALES, "sales"],
   ["/sales", SalesPage, MANAGER_SALES, "sales"],
   ["/sales/new", SaleFormPage, MANAGER_SALES, "sales", true],
   ["/service", ServicePage, MANAGER_TECH_RECEP, "service"],
@@ -86,6 +90,7 @@ export default function AppRouter() {
           <Route element={<PageWrapper />}>
             <Route path="/access-unavailable" element={<h1 className="text-xl text-text-primary">No staff modules are available for your account.</h1>} />
             <Route path="/" element={<StaffHome />} />
+            <Route path="/today" element={<TodayPage />} />
             {staffRoutes.map(([path, Page, roles, module, write]) => (
               <Route key={path} path={path} element={
                 <ProtectedRoute allowedRoles={roles} module={module} write={write}>

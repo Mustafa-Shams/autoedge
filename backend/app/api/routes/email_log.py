@@ -59,7 +59,10 @@ async def list_email_log(
             ).first()
             customer_name = customer.full_name if customer else None
 
+        activity = (e.render_context or {}).get("activity_path") or ""
+        deal = activity.removeprefix("/account/deals/") if activity.startswith("/account/deals/") else ""
         items.append({
+            "deal_id": int(deal) if deal.isdecimal() else None,
             "email_id": e.email_id,
             "customer_id": e.customer_id,
             "customer_name": customer_name,

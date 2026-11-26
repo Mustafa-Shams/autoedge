@@ -28,7 +28,10 @@ const SignupPage = lazy(() => import('../pages/auth/SignupPage'));
 const OverviewPage = lazy(() => import('../pages/account/OverviewPage'));
 const ProfilePage = lazy(() => import('../pages/account/ProfilePage'));
 const BankPage = lazy(() => import('../pages/account/BankPage'));
+const DealsPage = lazy(() => import('../pages/account/DealsPage'));
 const ReservationsPage = lazy(() => import('../pages/account/ReservationsPage'));
+const PurchasesPage = lazy(() => import('../pages/account/PurchasesPage'));
+const PurchaseCheckout = lazy(() => import('../pages/account/PurchaseCheckout'));
 const ReceiptPage = lazy(() => import('../pages/account/ReceiptPage'));
 const TestDrivesPage = lazy(() => import('../pages/account/TestDrivesPage'));
 const EnquiriesPage = lazy(() => import('../pages/account/EnquiriesPage'));
@@ -78,7 +81,10 @@ export default function AppRouter() {
           <Route index element={<OverviewPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="bank" element={<BankPage />} />
+          <Route path="deals/:id?" element={<DealsPage />} />
           <Route path="reservations" element={<ReservationsPage />} />
+          <Route path="purchases" element={<PurchasesPage />} />
+          <Route path="checkout/:id" element={<PurchaseCheckout />} />
           <Route path="receipts/reservation/:id" element={<ReceiptPage />} />
           <Route path="receipts/service/:id" element={<ReceiptPage />} />
           <Route path="test-drives" element={<TestDrivesPage />} />

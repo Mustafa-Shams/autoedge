@@ -17,11 +17,20 @@ export const changePassword = (data) => api.post('/store/me/change-password', da
 export const getBankSummary = () => api.get('/store/bank');
 export const getBankTransactions = (params) => api.get('/store/bank/transactions', { params });
 export const topUp = (data) => api.post('/store/bank/top-up', data);
-export const getSensitiveBankDetails = () => api.get('/store/bank/sensitive');
 
 // ── Reservations ────────────────────────────────────────────────────
 
 export const createReservation = (data) => api.post('/store/reservations', data);
+export const getPurchaseQuote = (vehicleId, reservationId, tradeId) =>
+  api.get(`/store/purchases/quote/${vehicleId}`, { params: { reservation_id: reservationId, trade_in_id: tradeId || undefined } });
+export const respondToInspection = (id, version, accept) =>
+  api.post(`/store/trade-ins/${id}/inspection-response`, { version, accept });
+export const buyVehicle = (data) => api.post('/store/purchases', data);
+export const getPurchases = () => api.get('/store/purchases');
+export const requestPurchaseCancellation = (id, agreeTradeReturn) =>
+  api.post(`/store/purchases/${id}/cancel`, { agree_trade_return: agreeTradeReturn });
+export const openPurchaseConversation = (id) => api.post(`/store/purchases/${id}/conversation`);
+export const getHoldQuote = (id, days) => api.get(`/store/reservations/quote/${id}`, { params: { hold_days: days } });
 export const getReservations = (params) => api.get('/store/reservations', { params });
 export const getReservation = (id) => api.get(`/store/reservations/${id}`);
 export const getReservationReceipt = (id) => api.get(`/store/reservations/${id}/receipt`);

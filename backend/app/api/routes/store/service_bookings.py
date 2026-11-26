@@ -18,6 +18,7 @@ from app.models.customer_account import CustomerAccount
 from app.models.customer_vehicle import CustomerVehicle
 from app.models.service_booking import ServiceBooking
 from app.models.service_type import ServiceType
+from app.schemas.service import ServicePartResponse
 from app.models.user import User
 from app.services.service_booking_service import (
     book_service,
@@ -75,6 +76,10 @@ class ServiceBookingListResponse(BaseModel):
 
 class BookingReceiptResponse(BaseModel):
     booking_id: int
+    cv_id: int
+    estimated_cost: Optional[Decimal] = None
+    final_cost: Optional[Decimal] = None
+    parts: List[ServicePartResponse] = Field(default_factory=list)
     receipt_number: str
     status: str
     vehicle_label: str
@@ -192,6 +197,7 @@ async def create_service_booking(
 @router.get("")
 async def list_service_bookings(
     status_filter: Optional[str] = None,
+    cv_id: Optional[int] = None,
     page: int = 1,
     page_size: int = 20,
     account: CustomerAccount = Depends(get_current_customer),
@@ -205,6 +211,8 @@ async def list_service_bookings(
     q = db.query(ServiceBooking).filter(
         ServiceBooking.customer_id == account.customer_id
     )
+    if cv_id is not None:
+        q = q.filter(ServiceBooking.cv_id == cv_id)
     if status_filter:
         q = q.filter(ServiceBooking.status == status_filter)
 
@@ -247,6 +255,10 @@ async def get_service_booking_receipt(
 
     return BookingReceiptResponse(
         booking_id=booking.booking_id,
+        cv_id=booking.cv_id,
+        estimated_cost=booking.job.estimated_cost if booking.job else None,
+        final_cost=booking.job.final_cost if booking.job else None,
+        parts=booking.job.parts if booking.job else [],
         receipt_number=f"SVC-{booking.booking_id:06d}",
         status=booking.status,
         vehicle_label=vehicle_label,

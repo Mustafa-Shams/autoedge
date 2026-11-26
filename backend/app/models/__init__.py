@@ -26,8 +26,14 @@ from app.models.review import Review
 from app.models.wishlist_item import WishlistItem
 from app.models.notification import Notification
 from app.models.email_outbox import EmailOutbox
+from app.models.deal import Deal, InventoryUnit
+from app.models.sales_assistance import SalesAssistance
+from app.models.trade_acquisition import TradeAcquisition
+
+from app.models.deal_activity import DealActivity
 
 __all__ = [
+    "DealActivity",
     "Base",
     "User",
     "Vehicle",
@@ -56,4 +62,8 @@ __all__ = [
     "WishlistItem",
     "Notification",
     "EmailOutbox",
+    "Deal",
+    "InventoryUnit",
+    "SalesAssistance",
+    "TradeAcquisition",
 ]

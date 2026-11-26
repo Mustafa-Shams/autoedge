@@ -46,5 +46,5 @@ const LANDING_PAGES = {
 
 export function staffHome(user) {
   const firstModule = Object.keys(LANDING_PAGES).find((module) => hasModuleAccess(user, module));
-  return firstModule ? LANDING_PAGES[firstModule] : "/access-unavailable";
+  return firstModule ? "/today" : "/access-unavailable";
 }

@@ -63,6 +63,7 @@ class TestDriveVehicleInfo(BaseModel):
 class TestDriveResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     test_drive_id: int
+    deal_id: int | None = None
     customer_id: int
     vehicle_id: int
     scheduled_date: date
@@ -99,6 +100,7 @@ def _enrich_response(td) -> dict:
     """Convert a TestDrive ORM object to a response dict with vehicle info."""
     data = {
         "test_drive_id": td.test_drive_id,
+        "deal_id": td.deal_id,
         "customer_id": td.customer_id,
         "vehicle_id": td.vehicle_id,
         "scheduled_date": td.scheduled_date,

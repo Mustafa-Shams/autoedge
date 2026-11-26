@@ -3,29 +3,31 @@ import json
 import logging
 import os
 from functools import partial
-from datetime import date, time, timedelta
+from uuid import uuid4
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 import httpx
 import pytest
 
-os.environ["DATABASE_URL"] = "sqlite://"
 os.environ.setdefault("SECRET_KEY", "staff-portal-test")
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from app.db.session import engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_db
 from app.core.config import Settings, settings
 from app.core.security import create_access_token, hash_password
 from app.core.time import utcnow
-from app.db.base import Base
 from app.main import app
 from app.models.bank_account import BankAccount
 from app.models.bank_transaction import BankTransaction
 from app.models.customer import Customer
+from app.models.deal import Deal, InventoryUnit
+from app.models.commission import Commission
+from app.models.enquiry import Enquiry, EnquiryMessage
+from app.models.test_drive import TestDrive as Drive
 from app.models.customer_vehicle import CustomerVehicle
 from app.models.notification import Notification
 from app.models.reservation import Reservation
@@ -42,9 +44,7 @@ PASSWORD = "LocalPass91"
 
 
 @pytest.fixture
-def setup(monkeypatch):
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
+def setup(monkeypatch, clean_database):
     sessions = sessionmaker(bind=engine, autoflush=False)
     monkeypatch.setattr(settings, "EMAIL_PROVIDER", "none")
 
@@ -60,7 +60,6 @@ def setup(monkeypatch):
         yield TestClient(app), sessions, staff_headers("manager@autoedge.com")
     finally:
         app.dependency_overrides.pop(get_db)
-        engine.dispose()
 
 
 def headers(token):
@@ -125,6 +124,7 @@ def test_stock_status_after_manual_edits_and_a_reserved_sale(setup):
     assert response.json()["status"] == "Available"
     reservation_id = reserve(client, customer, vehicle_id, "convert-test")
     with sessions() as db:
+        held_unit = db.query(Deal).filter_by(reservation_id=reservation_id).one().unit_id
         staff_id = db.query(User.user_id).filter_by(role="manager").scalar()
     response = client.post(f"{API}/sales/", headers=manager, json={
         "staff_id": staff_id, "vehicle_id": vehicle_id, "customer_id": customer_id,
@@ -133,6 +133,351 @@ def test_stock_status_after_manual_edits_and_a_reserved_sale(setup):
     assert response.status_code == 201, response.text
     vehicle = client.get(f"{API}/vehicles/{vehicle_id}", headers=manager).json()
     assert (vehicle["stock_quantity"], vehicle["status"]) == (0, "Sold")
+    with sessions() as db:
+        deal = db.query(Deal).filter_by(sale_id=response.json()["sale_id"]).one()
+        assert (deal.unit_id, deal.reservation_id, deal.stage) == (held_unit, reservation_id, "Awaiting pickup")
+        assert db.get(InventoryUnit, held_unit).vin is None
+        assert db.query(CustomerVehicle).filter_by(source_sale_id=deal.sale_id).count() == 0
+
+
+@pytest.mark.parametrize("use_hold", [False, True])
+def test_purchase_payment_retry_and_verified_handover(setup, use_hold):
+    client, sessions, manager = setup
+    customer_id, buyer = signup(client)
+    _, other = signup(client, "second@example.com")
+    with sessions.begin() as db:
+        vehicle_id = add_vehicle(db, stock=1, vin="LISTING-ONLY")
+        _, tech = add_user(db, "technician")
+    opened = client.post(f"{API}/store/enquiries", headers=buyer, json={
+        "vehicle_id": vehicle_id, "subject": "Pickup options", "message": "When can I collect the car?"})
+    assert opened.status_code == 201, opened.text
+    journey = client.get(f"{API}/store/deals", headers=buyer).json()["items"][0]["id"]
+    general = client.post(f"{API}/store/enquiries", headers=buyer, json={"subject":"Earlier question", "message":"Can we discuss pickup?"}).json()["enquiry_id"]
+    link_path = f"{API}/store/deals/{journey}/enquiries/{general}"
+    assert client.post(link_path, headers=other).status_code == 404
+    assert client.post(link_path, headers=buyer).status_code == 200
+    assert client.post(link_path, headers=buyer).status_code == 200
+    hold = None
+    if use_hold:
+        terms = client.get(f"{API}/store/reservations/quote/{vehicle_id}?hold_days=14", headers=buyer).json()
+        assert Decimal(terms["refund"]) == 1080
+        request = dict(vehicle_id=vehicle_id, hold_days=14, password=PASSWORD, idempotency_key="deposit")
+        url = f"{API}/store/reservations"
+        assert client.post(url, headers=buyer, json={**request, "quote_token":terms["token"]+"x"}).status_code == 409
+        result = client.post(url, headers=buyer, json={**request, "quote_token":terms["token"]}).json()
+        assert result["deal_id"] == journey
+        assert datetime.fromisoformat(result["expires_at"]) == datetime.fromisoformat(terms["expires_at"])
+        hold = result["reservation_id"]
+    quote = client.get(f"{API}/store/purchases/quote/{vehicle_id}", headers=buyer).json()
+    assert quote["charge"] == (10800 if use_hold else 12000)
+    body = dict(vehicle_id=vehicle_id, reservation_id=hold, expected_price=12000, expected_charge=quote["charge"],
+                password=PASSWORD, idempotency_key=str(uuid4()))
+    url = f"{API}/store/purchases"
+    assert client.post(url, headers=buyer, json={**body, "expected_charge": 1}).status_code == 409
+    assert client.post(url, headers=buyer, json={**body, "password": "wrong"}).status_code == 403
+    response = client.post(url, headers=buyer, json=body)
+    assert response.status_code == 200, response.text
+    receipt = response.json()
+    assert client.post(url, headers=buyer, json=body).json() == receipt
+    assert receipt["deal_id"] == journey
+    path = f"{API}/store/deals/{journey}"
+    assert client.get(path, headers=other).status_code == 404
+    assert client.get(f"{API}/deals/{journey}", headers=tech).status_code == 403
+    for route, auth in [(path, buyer), (f"{API}/deals/{journey}", manager)]:
+        history = client.get(route, headers=auth).json()
+        assert history["due"] == 0 and any(e["detail"] == "When can I collect the car?" for e in history["events"])
+    assert receipt["vin"] is None and receipt["stage"] == "Awaiting pickup"
+    assert client.get(url, headers=other).json() == []
+    handover = f"{API}/sales/{receipt['sale_id']}/handover"
+    vin = {"vin": " jtdkn3du0a0123456 "}
+    assert client.post(handover, headers=manager, json={"vin": "LISTING-ONLY"}).status_code == 409
+    assert client.post(handover, headers=buyer, json=vin).status_code in (401, 403)
+    assert client.post(handover, headers=tech, json=vin).status_code == 403
+    for _ in range(2):
+        res = client.post(handover, headers=manager, json=vin)
+        assert res.status_code == 200, res.text
+        assert res.json()["pickup_status"] == "Collected"
+    assert client.post(handover, headers=manager, json={"vin": "JTDKN3DU0A0123457"}).status_code == 409
+    assert client.post(f"{url}/{receipt['sale_id']}/cancel", headers=buyer).status_code == 409
+    with sessions() as db:
+        assert db.query(BankTransaction).filter_by(txn_type="Vehicle Purchase").count() == 1
+        assert db.query(BankAccount).filter_by(customer_id=customer_id).one().balance == settings.DEMO_STARTING_BALANCE - 12000
+        assert db.query(CustomerVehicle).one().vin_number == vin["vin"].strip().upper()
+        unit = db.get(InventoryUnit, receipt["unit_id"])
+        assert unit.verified_at and unit.verified_by
+        assert db.query(Commission).count() == 0
+
+
+def test_paid_cancellation_refunds_twenty_percent_including_deposit(setup):
+    client, sessions, manager = setup
+    customer_id, buyer = signup(client)
+    _, other = signup(client, "other@example.com")
+    with sessions.begin() as db:
+        vehicle_id = add_vehicle(db, stock=1)
+        _, sales = add_user(db, "sales_executive")
+    hold = reserve(client, buyer, vehicle_id, "refund-hold")
+    url = f"{API}/store/purchases"
+    body = dict(vehicle_id=vehicle_id, reservation_id=hold, expected_price=12000, expected_charge=10800,
+                password=PASSWORD, idempotency_key=str(uuid4()))
+    with sessions.begin() as db:
+        bank = db.query(BankAccount).filter_by(customer_id=customer_id).one()
+        bank.balance = 100
+    assert client.post(url, headers=buyer, json=body).status_code == 409
+    with sessions.begin() as db:
+        assert db.get(Reservation, hold).status == "Active"
+        assert db.query(Deal).one().stage == "Reserved"
+        assert db.query(BankTransaction).filter_by(txn_type="Vehicle Purchase").count() == 0
+        db.query(BankAccount).filter_by(customer_id=customer_id).one().balance = 10800
+    sale_id = client.post(url, headers=buyer, json=body).json()["sale_id"]
+    approve = f"{API}/sales/{sale_id}/approve-refund"
+    assert client.post(approve, headers=manager).status_code == 409
+    assert client.post(f"{url}/{sale_id}/cancel", headers=other).status_code == 404
+    assert client.post(f"{url}/{sale_id}/cancel", headers=buyer).status_code == 200
+    assert client.post(approve, headers=sales).status_code == 403
+    assert client.post(f"{API}/sales/{sale_id}/handover", headers=manager, json={"vin":"JTDKN3DU0A0123456"}).status_code == 409
+    for _ in range(2):
+        approved = client.post(approve, headers=manager)
+        assert approved.status_code == 200, approved.text
+    receipt = client.get(url, headers=buyer).json()[0]
+    assert receipt["refund_amount"] == 2400 and receipt["stage"] == "Refunded"
+    with sessions() as db:
+        assert db.query(BankAccount).filter_by(customer_id=customer_id).one().balance == 2400
+        assert db.query(StockMovement).filter_by(reason="Sale Refund").count() == 1
+        assert db.get(Vehicle, vehicle_id).stock_quantity == 1
+        assert db.query(Commission).count() == 0
+
+
+def inspect_and_receive(client, manager, buyer, trade_id, value, excess=0):
+    url = f"{API}/trade-ins/{trade_id}/acquisition"
+    response = client.post(url, headers=manager, json={"action": "schedule", "appointment": "2026-11-23T06:00:00Z"})
+    assert response.status_code == 200, response.text
+    terms = {"action":"inspect", "version":0, "value":value, "findings":"Mileage and condition verified",
+             "excess":excess, "settlement":"Separate agreed payment" if excess else None}
+    assert client.post(url, headers=manager, json=terms).status_code == 200
+    intake = {"action":"intake", "vin":"JTDKN3DU0A0123478", "version":1}
+    assert client.post(url, headers=manager, json=intake).status_code == 422
+    intake.update(ownership_verified=True, condition_verified=True, ownership_reference="DEMO-TITLE", odometer_km=41000)
+    assert client.post(url, headers=manager, json=intake).status_code == 409
+    respond = f"{API}/store/trade-ins/{trade_id}/inspection-response"
+    assert client.post(respond, headers=buyer, json={"version":0,"accept":True}).status_code == 409
+    assert client.post(respond, headers=buyer, json={"version":1,"accept":True}).status_code == 200
+    received = client.post(url, headers=manager, json=intake)
+    assert received.status_code == 200, received.text
+    a = received.json()["acquisition"]
+    assert a["stock_unit_id"] and a["checked"] and a["listing_id"] is None
+
+
+@pytest.mark.parametrize("with_trade", [False, True])
+def test_showroom_payment_messages_and_settlement(setup, with_trade):
+    client, sessions, manager = setup
+    customer_id, buyer = signup(client)
+    _, other = signup(client, "different@example.com")
+    with sessions.begin() as db:
+        car = add_vehicle(db, stock=1)
+        staff = db.query(User).filter_by(role="manager").one().user_id
+        _, restricted = add_user(db, "sales_executive", module_access={"sales": "view"})
+    trade_id = None
+    if with_trade:
+        response = client.post(f"{API}/store/trade-ins", headers=buyer, json={
+            "make": "Toyota", "model": "Vitz", "year": 2013, "mileage_km": 85000,
+            "condition_rating": "Good", "image_urls": [f"https://example.com/test-{i}.jpg" for i in range(3)],
+        })
+        trade_id = response.json()["trade_in_id"]
+        assert client.put(f"{API}/trade-ins/{trade_id}", headers=manager, json={
+            "status": "Offer Made", "offered_value": 2000}).status_code == 200
+        assert client.post(f"{API}/store/trade-ins/{trade_id}/respond", headers=buyer, json={"accept": True}).status_code == 200
+        inspect_and_receive(client, manager, buyer, trade_id, 2000)
+    r = client.post(f"{API}/sales/", headers=manager, json={
+        "vehicle_id": car, "customer_id": customer_id, "staff_id": staff, "payment_type": "Finance",
+        "sale_price": 12000, "status": "Completed", "trade_in_id": trade_id})
+    assert r.status_code == 201, r.text
+    sale = r.json()["sale_id"]
+    with sessions() as db:
+        notice = db.query(Notification).filter_by(type="purchase_completed", customer_id=customer_id).one()
+        assert notice.title.startswith("Purchase recorded") and notice.link_path == f"/account/deals/{r.json()['deal_id']}"
+    staff_url = f"{API}/sales/{sale}"
+    customer_url = f"{API}/store/purchases/{sale}"
+    vin = {"vin": "JTDKN3DU0A0123456"}
+    assert client.post(staff_url + "/handover", headers=manager, json=vin).status_code == 409
+    data = {"cash_received": 3000, "external_funding": 7000 if with_trade else 9000,
+            "reference": "local showroom receipt", "trade_received": with_trade}
+    assert client.post(staff_url + "/payment", headers=restricted, json=data).status_code == 403
+    assert client.post(staff_url + "/payment", headers=manager, json={**data,"cash_received": 3500}).status_code == 409
+    for _ in range(2):
+        verified = client.post(staff_url + "/payment", headers=manager, json=data)
+        assert verified.status_code == 200, verified.text
+        assert Decimal(verified.json()["balance_due_at_showroom"]) == 0
+    assert client.post(staff_url + "/pickup-deadline", headers=manager, json={"deadline":"2099-12-05T18:00:00+05:00"}).status_code == 200
+    assert client.post(customer_url + "/conversation", headers=other).status_code == 404
+    thread = client.post(customer_url + "/conversation", headers=buyer).json()["enquiry_id"]
+    assert client.post(staff_url + "/conversation", headers=manager).json()["enquiry_id"] == thread
+    assert client.post(f"{API}/store/enquiries/{thread}/messages", headers=buyer, json={"body":"Can I collect Friday?"}).status_code == 200
+    receipt = client.get(f"{API}/store/purchases", headers=buyer).json()[0]
+    assert receipt["enquiry_id"] == thread and receipt["pickup_deadline"] == "2099-12-05T13:00:00+00:00"
+    assert receipt["refund_if_cancelled"] == 600
+    if with_trade:
+        assert client.post(customer_url + "/cancel", headers=buyer).status_code == 409
+    agreement = {"agree_trade_return": with_trade}
+    assert client.post(customer_url + "/cancel", headers=buyer, json=agreement).status_code == 200
+    if with_trade:
+        assert client.post(staff_url + "/approve-refund", headers=manager).status_code == 409
+    for _ in range(2):
+        assert client.post(staff_url + "/approve-refund", headers=manager, json=agreement).status_code == 200
+    with sessions() as db:
+        assert db.get(Vehicle, car).stock_quantity == 1
+        assert db.query(BankTransaction).filter_by(sale_id=sale, txn_type="Refund").one().amount == 600
+        assert db.query(Commission).count() == 0
+    if with_trade:
+        assert client.get(f"{API}/trade-ins/{trade_id}", headers=manager).json()["status"] == "Cancelled"
+
+
+@pytest.mark.parametrize("kind", ["Conversation", "Test drive", "Walk-in"])
+def test_before_payment_assistance_is_consumed_once_at_pickup(setup, kind):
+    client, sessions, manager = setup
+    customer_id, buyer = signup(client)
+    with sessions.begin() as db:
+        vehicle = add_vehicle(db, stock=2)
+        owner, sales = add_user(db, "sales_executive", handles_enquiries=True)
+        _, tech = add_user(db, "technician")
+        source_id = None
+        if kind == "Conversation":
+            thread = Enquiry(customer_id=customer_id, vehicle_id=vehicle, subject="Help comparing trims")
+            db.add(thread)
+            db.flush()
+            source_id = thread.enquiry_id
+            db.add(EnquiryMessage(enquiry_id=source_id, sender_type="staff", sender_user_id=owner, body="Compared the trims."))
+        if kind == "Test drive":
+            drive = Drive(customer_id=customer_id, vehicle_id=vehicle, assigned_to=owner, scheduled_date=date.today(), status="Completed")
+            db.add(drive)
+            db.flush()
+            source_id = drive.test_drive_id
+    url = f"{API}/sales/assistance"
+    body = dict(owner_id=owner, customer_id=customer_id, vehicle_id=vehicle, kind=kind, source_id=source_id, note="Compared trims in person")
+    assert client.post(url, headers=tech, json=body).status_code == 403
+    if source_id:
+        assert client.post(url, headers=sales, json={**body, "source_id": 10000}).status_code == 409
+    for _ in range(2):
+        saved = client.post(url, headers=sales, json=body)
+        assert saved.status_code == 200, saved.text
+    confirm = dict(vehicle_id=vehicle, expected_price=12000, expected_charge=12000, password=PASSWORD)
+    for purchase_no in range(2):
+        res = client.post(f"{API}/store/purchases", headers=buyer, json={**confirm, "idempotency_key": str(uuid4())})
+        assert res.status_code == 200, res.text
+        sale_id = res.json()["sale_id"]
+        queue = client.get(f"{API}/today", headers=sales).json()["tasks"]
+        assert any(t["path"] == f"/sales?receipt={sale_id}" and t["owner_id"] == owner
+                   and t["deal_id"] == res.json()["deal_id"] for t in queue)
+        assert not any(t["path"].startswith("/sales") for t in client.get(f"{API}/today", headers=tech).json()["tasks"])
+        with sessions() as db:
+            assert db.query(Commission).count() == purchase_no
+        for _ in range(2):
+            assert client.post(f"{API}/sales/{sale_id}/handover", headers=manager,
+                               json={"vin": f"JTDKN3DU0A012345{purchase_no}"}).status_code == 200
+        info = client.get(f"{API}/sales/{sale_id}", headers=manager).json()["commission_details"]
+        if purchase_no == 0:
+            assert Decimal(str(info["amount"])) == 300 and kind in info["evidence"]
+        else:
+            assert info is None
+    with sessions() as db:
+        commission = db.query(Commission).one()
+        assert commission.staff_id == owner and commission.commission_amt == 300
+    assert client.post(f"{url}/{saved.json()['assistance_id']}/close", headers=sales).status_code == 409
+
+
+@pytest.mark.parametrize("scenario", ["credit", "excess", "standalone"])
+def test_inspected_trade_credits_purchase_once_and_publishes_after_collection(setup, scenario):
+    client, sessions, manager = setup
+    _, buyer = signup(client)
+    with sessions.begin() as db:
+        car = add_vehicle(db, stock=1)
+    response = client.post(f"{API}/store/trade-ins", headers=buyer, json={
+        "make":"Toyota", "model":"Vitz", "year":2013, "mileage_km":51000,
+        "target_vehicle_id":car, "condition_rating":"Good", "image_urls":[f"https://example.com/test-{i}.jpg" for i in range(3)]})
+    trade = response.json()["trade_in_id"]
+    url = f"{API}/trade-ins/{trade}"
+    assert client.put(url, headers=manager, json={"status":"Offer Made","offered_value":4500}).status_code == 200
+    assert client.post(f"{API}/store/trade-ins/{trade}/respond", headers=buyer, json={"accept":True}).json()["acquisition"]["listing_id"] is None
+    deal_id = client.get(f"{API}/store/deals", headers=buyer).json()["items"][0]["id"]
+    pending = client.get(f"{API}/store/deals/{deal_id}", headers=buyer).json()
+    assert pending["credits"][0]["status"] == "Pending" and pending["due"] == 12000
+    assert any("accepted" in e["title"] for e in pending["events"])
+    value = 14000 if scenario == "excess" else 4000
+    excess = max(value - 12000, 0)
+    inspect_and_receive(client, manager, buyer, trade, value, excess)
+    with sessions() as db:
+        private = db.query(InventoryUnit).filter_by(intake_trade_id=trade).one()
+        assert private.vehicle_id is None
+        intake_unit = private.unit_id
+    publish = {"action":"publish","retail_price":6400,"preparation_cost":300,
+               "description":"Inspected used Toyota Vitz, 51,000 km.","photos_and_details_verified":True}
+    assert client.post(url+"/acquisition", headers=manager, json=publish).status_code == 409
+    if scenario == "standalone":
+        pay = {"action":"acquisition-payment", "reference":"ACQ-001", "amount":value}
+        assert client.post(url+"/acquisition", headers=manager, json={**pay,"amount":1}).status_code == 409
+        for _ in range(2):
+            assert client.post(url+"/acquisition", headers=manager, json=pay).status_code == 200
+        # Older paid acquisitions have custody history but lack the ownership checklist.
+        from app.models.trade_acquisition import TradeAcquisition
+        with sessions.begin() as db:
+            acquisition = db.get(TradeAcquisition, trade)
+            acquisition.checked_at = acquisition.checked_by = acquisition.intake_version = None
+            acquisition.ownership_reference = acquisition.odometer_km = None
+        tasks = client.get(f"{API}/today", headers=manager).json()["tasks"]
+        assert any(t["action"] == "Verify trade-in ownership and intake" and t["deal_id"] == deal_id for t in tasks)
+        assert not client.get(url, headers=manager).json()["acquisition"]["ready_for_resale"]
+        assert client.post(url+"/acquisition", headers=manager, json=publish).status_code == 409
+        check = dict(action="intake", version=1, vin="JTDKN3DU0A0123478", ownership_verified=True,
+                     condition_verified=True, ownership_reference="DEMO-TITLE", odometer_km=41000)
+        assert client.post(url+"/acquisition", headers=manager, json=check).status_code == 200
+    else:
+        q = client.get(f"{API}/store/purchases/quote/{car}", params={"trade_in_id":trade}, headers=buyer).json()
+        assert q["trade_in_credit"] == min(value,12000) and q["charge"] == max(0,12000-value)
+        payload = dict(vehicle_id=car,trade_in_id=trade,expected_price=12000,expected_charge=q["charge"],
+                       password=PASSWORD,idempotency_key=str(uuid4()))
+        for _ in range(2):
+            res = client.post(f"{API}/store/purchases", headers=buyer, json=payload)
+            assert res.status_code == 200, res.text
+        assert client.post(url+"/acquisition", headers=manager, json=publish).status_code == 409
+        handover_url = f"{API}/sales/{res.json()['sale_id']}/handover"
+        handover = {"vin":"JTDKN3DU0A0123499"}
+        if excess:
+            assert client.post(handover_url, headers=manager, json=handover).status_code == 409
+            handover["settlement_reference"] = "EXCESS-001"
+        assert client.post(handover_url, headers=manager, json=handover).status_code == 200
+        if excess:
+            assert client.get(url, headers=manager).json()["acquisition"]["settled_amount"] == excess
+    queue = client.get(f"{API}/today", headers=manager).json()["tasks"]
+    assert any(task["action"] == "Prepare resale listing" and task["path"] == f"/trade-ins?id={trade}" for task in queue)
+    for _ in range(2):
+        result = client.post(url+"/acquisition", headers=manager, json=publish)
+        assert result.status_code == 200, result.text
+    listing = result.json()["acquisition"]["listing_id"]
+    with sessions() as db:
+        assert db.get(InventoryUnit, intake_unit).vehicle_id == listing
+    public = client.get(f"{API}/public/vehicles/{listing}").json()
+    assert public["model"] == "Vitz" and Decimal(str(public["price"])) == 6400 and public["stock_quantity"] == 1
+    with sessions() as db:
+        assert db.query(Vehicle).count() == 2
+        assert db.query(InventoryUnit).filter_by(vehicle_id=listing).one().vin == "JTDKN3DU0A0123478"
+
+
+def test_expired_hold_cannot_charge_or_convert(setup):
+    client, sessions, _ = setup
+    _, buyer = signup(client)
+    with sessions.begin() as db:
+        vehicle = add_vehicle(db, stock=1)
+    hold = reserve(client, buyer, vehicle, "expires-at-checkout")
+    with sessions.begin() as db:
+        db.get(Reservation, hold).expires_at = utcnow() - timedelta(seconds=1)
+    response = client.post(f"{API}/store/purchases", headers=buyer, json=dict(
+        vehicle_id=vehicle, reservation_id=hold, expected_price=12000, expected_charge=10800,
+        password=PASSWORD, idempotency_key=str(uuid4())))
+    assert response.status_code == 409, response.text
+    with sessions() as db:
+        assert db.get(Reservation, hold).status == "Expired"
+        assert db.get(Vehicle, vehicle).stock_quantity == 1
+        assert db.query(Deal).one().unit_id is None
+        assert db.query(BankTransaction).filter_by(txn_type="Vehicle Purchase").count() == 0
 
 
 def test_service_job_form_has_real_vehicle_customer_and_technician_options(setup):
@@ -396,7 +741,7 @@ def brevo(monkeypatch):
     monkeypatch.setenv("EMAIL_FROM_ADDRESS", " ' sender@autoedge.com ' \n")
     monkeypatch.setenv("EMAIL_FROM_NAME", ' "AutoEdge Mail" ')
     monkeypatch.setenv("EMAIL_PROVIDER", ' "Brevo" ')
-    config = Settings(_env_file=None, DATABASE_URL="sqlite://", SECRET_KEY="local-test")
+    config = Settings(_env_file=None, DATABASE_URL=settings.DATABASE_URL, SECRET_KEY="local-test")
     assert config.EMAIL_API_KEY == key
     monkeypatch.setattr(email_service, "settings", config)
     return key
@@ -545,6 +890,112 @@ def test_staff_roles_overrides_password_reset_and_deactivation(setup):
     assert login("Temporary1").status_code == 403
     assert client.get(f"{API}/auth/me", headers=reset_token).status_code == 401
     assert client.delete(url + "/permanent", headers=manager).status_code == 204
+
+
+def test_customer_test_drive_request_and_cancel(setup):
+    client, sessions, _ = setup
+    _, customer = signup(client)
+    with sessions.begin() as db:
+        vehicle_id = add_vehicle(db)
+    day = date.today() + timedelta(days=4)
+    if day.weekday() == 6:
+        day += timedelta(days=1)
+    url = f"{API}/store/test-drives"
+    response = client.post(url, headers=customer, json={
+        "vehicle_id": vehicle_id, "scheduled_date": day.isoformat(), "scheduled_time": "10:00",
+    })
+    assert response.status_code == 201, response.text
+    drive = response.json()
+    cancelled = client.post(f"{url}/{drive['test_drive_id']}/cancel", headers=customer)
+    assert cancelled.status_code == 200, cancelled.text
+    assert cancelled.json()["status"] == "Cancelled"
+
+
+def test_service_cancellation_persists_refund_once(setup, monkeypatch):
+    import asyncio
+    from app.models.email_outbox import EmailOutbox
+
+    def broken_template(**kwargs):
+        raise RuntimeError("Fixture template failed")
+
+    monkeypatch.setattr(email_service, "get_email_content", broken_template)
+    client, sessions, _ = setup
+    customer_id, customer = signup(client)
+    with sessions.begin() as db:
+        car = CustomerVehicle(customer_id=customer_id, make="Toyota", model="Corolla", year=2023)
+        service = ServiceType(name="Inspection", base_price=80, booking_fee=30, duration_minutes=60)
+        db.add_all([car, service])
+        db.flush()
+        day = date.today() + timedelta(days=4)
+        if day.weekday() == 6:
+            day += timedelta(days=1)
+        payload = dict(cv_id=car.cv_id, service_type_id=service.service_type_id, booking_date=day.isoformat(),
+                       time_slot="10:00", password=PASSWORD, idempotency_key="service-cancel-check")
+    url = f"{API}/store/service-bookings"
+    booking = client.post(url, headers=customer, json=payload)
+    assert booking.status_code == 201, booking.text
+    detail = f"{url}/{booking.json()['booking_id']}"
+    assert client.post(detail + "/cancel", headers=customer).status_code == 200
+    assert client.post(detail + "/cancel", headers=customer).status_code == 409
+    receipt = client.get(detail + "/receipt", headers=customer).json()
+    assert receipt["status"] == "Cancelled"
+    assert Decimal(receipt["refund_amount"]) == 30
+    with sessions() as db:
+        email = db.query(EmailOutbox).order_by(EmailOutbox.email_id.desc()).first()
+        monkeypatch.setattr(email_service, "provider_configured", lambda: True)
+        monkeypatch.setattr(email_service, "_is_suppressed_address", lambda _: False)
+        result = asyncio.run(email_service.send(db, email.email_id, retry=True))
+        assert result.status == "Failed" and result.detail == "Fixture template failed"
+    assert client.get(detail + "/receipt", headers=customer).json() == receipt
+
+
+@pytest.mark.parametrize("outcome", ["Completed", "Cancelled"])
+def test_workshop_and_customer_share_the_same_car_and_receipt(setup, outcome):
+    from app.models.technician_profile import TechnicianProfile
+
+    client, sessions, manager = setup
+    owner_id, owner = signup(client)
+    _, other = signup(client, "other-service@example.com")
+    with sessions.begin() as db:
+        tech, _ = add_user(db, "technician")
+        car = CustomerVehicle(customer_id=owner_id, make="Toyota", model="Corolla", year=2023)
+        service = ServiceType(name="Workshop", base_price=80, booking_fee=30, duration_minutes=60)
+        db.add_all([car, service, TechnicianProfile(user_id=tech, specialty="Mechanic")])
+        db.flush()
+        day = date.today() + timedelta(days=4)
+        if day.weekday() == 6:
+            day += timedelta(days=1)
+        cv = car.cv_id
+        payload = dict(cv_id=cv, service_type_id=service.service_type_id, booking_date=day.isoformat(),
+                       time_slot="10:00", password=PASSWORD, idempotency_key="workshop-receipt")
+    url = f"{API}/store/service-bookings"
+    booked = client.post(url, headers=owner, json=payload)
+    assert booked.status_code == 201, booked.text
+    bid = booked.json()["booking_id"]
+    assert client.post(url, headers=other, json=payload).status_code == 409
+    confirmed = client.post(f"{API}/service-bookings/{bid}/confirm", headers=manager, json={"technician_id": tech})
+    assert confirmed.status_code == 200, confirmed.text
+    job = f"{API}/service/{confirmed.json()['service_job_id']}"
+    receipt = f"{url}/{bid}/receipt"
+    if outcome == "Completed":
+        assert client.put(job, headers=manager, json={"status": "In Progress"}).status_code == 200
+        assert client.get(receipt, headers=owner).json()["status"] == "In Progress"
+        assert client.post(f"{url}/{bid}/cancel", headers=owner).status_code == 409
+        part = client.post(job + "/parts", headers=manager, json={"part_name":"Oil filter","quantity":2,"unit_cost":8})
+        assert part.status_code == 201, part.text
+    changed = client.put(job, headers=manager, json={"status": outcome, "final_cost": 96})
+    assert changed.status_code == 200, changed.text
+    assert client.put(job, headers=manager, json={"status": outcome}).status_code == 200
+    details = client.get(receipt, headers=owner).json()
+    assert (details["status"], details["cv_id"], details["technician_name"]) == (outcome, cv, "Technician")
+    if outcome == "Completed":
+        assert Decimal(details["parts"][0]["total_cost"]) == 16 and Decimal(details["final_cost"]) == 96
+    else:
+        assert Decimal(details["refund_amount"]) == 30 and details["refund_reference"]
+    assert client.get(receipt, headers=other).status_code == 404
+    assert client.get(url, headers=owner, params={"cv_id":cv}).json()["total"] == 1
+    assert client.get(url, headers=other, params={"cv_id":cv}).json()["total"] == 0
+    assert client.delete(f"{API}/store/garage/{cv}", headers=owner).status_code == 409
 
 
 def test_technician_profile_updates_upcoming_bookings_and_public_representation(setup):

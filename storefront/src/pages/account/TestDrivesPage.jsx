@@ -4,7 +4,7 @@
  * cancel button, vehicle info, scheduled date/time.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import * as storeApi from '../../api/storeApi';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
@@ -24,7 +24,10 @@ const STATUS_FILTERS = [
 
 export default function TestDrivesPage() {
   const navigate = useNavigate();
-  const [testDrives, setTestDrives] = useState([]);
+  const [allRecords, setTestDrives] = useState([]);
+  const [params] = useSearchParams();
+  const record = params.get('id');
+  const testDrives = record ? allRecords.filter(item => String(item.test_drive_id) === record) : allRecords;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -75,6 +78,7 @@ export default function TestDrivesPage() {
     return (
       <div>
         <h1 className="text-2xl font-bold text-text-primary mb-2">My Test Drives</h1>
+          {record && <Link className="underline" to="/account/test-drives">View all test drives</Link>}
         <EmptyState
           title="Unable to load"
           description={error}
@@ -162,6 +166,7 @@ export default function TestDrivesPage() {
                           <h3 className="text-sm font-semibold text-text-primary truncate">
                             {vehicleName}
                           </h3>
+                          {td.deal_id && <Link className="underline" to={`/account/deals/${td.deal_id}`}>Deal #{td.deal_id}</Link>}
                           <StatusBadge status={td.status} size="xs" />
                           {td.source === 'Online' && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent-blue/10 text-accent-blue font-medium">

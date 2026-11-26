@@ -19,14 +19,13 @@ const PUBLIC_LINKS = [
   { to: '/emi-calculator', label: 'EMI Calculator' },
   { to: '/service', label: 'Service' },
   { to: '/trade-in', label: 'Trade-In' },
-  { to: '/about', label: 'About' },
-  { to: '/contact', label: 'Contact' },
 ];
 
 const ACCOUNT_LINKS = [
   { to: '/account', label: 'Overview', exact: true },
-  { to: '/account/bank', label: 'Bank' },
+  { to: '/account/bank', label: 'Demo wallet' },
   { to: '/account/reservations', label: 'Reservations' },
+  { to: '/account/purchases', label: 'My purchases' },
   { to: '/account/test-drives', label: 'Test Drives' },
   { to: '/account/enquiries', label: 'Enquiries' },
   { to: '/account/trade-ins', label: 'Trade-Ins' },

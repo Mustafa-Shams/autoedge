@@ -15,7 +15,6 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-os.environ["DATABASE_URL"] = "sqlite:///./test_vehicle_images.db"
 os.environ["SECRET_KEY"] = "test-secret-key-for-vehicle-images"
 os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"
@@ -25,7 +24,6 @@ from app.main import app  # noqa: E402
 from app.db.session import engine  # noqa: E402
 from app.db.base import Base  # noqa: E402
 
-Base.metadata.create_all(bind=engine)
 client = TestClient(app)
 
 

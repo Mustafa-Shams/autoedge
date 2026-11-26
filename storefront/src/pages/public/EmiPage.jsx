@@ -39,8 +39,12 @@ export default function EmiPage() {
     const fetchVehicles = async () => {
       try {
         setLoadingVehicles(true);
-        const res = await getVehicles({ page_size: 100 });
-        const items = res.data.items || res.data || [];
+        const items = [];
+        for (let page = 1; ; page++) {
+          const { data } = await getVehicles({ page, page_size: 50 });
+          items.push(...data.items);
+          if (items.length >= data.total || data.items.length < 50) break;
+        }
         setVehicles(items);
 
         // If ?vehicle=ID is in URL, preselect that car

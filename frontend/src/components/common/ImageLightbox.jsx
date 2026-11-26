@@ -1,3 +1,4 @@
+import ModalOverlay from './ModalOverlay';
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   X,
@@ -25,21 +26,14 @@ export default function ImageLightbox({ images, initialIndex = 0, onClose }) {
 
   useEffect(() => {
     const handleKey = (e) => {
-      if (!["Escape", "ArrowRight", "ArrowLeft"].includes(e.key)) return;
+      if (!["ArrowRight", "ArrowLeft"].includes(e.key)) return;
       e.preventDefault();
-      if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowRight") goNext();
+      if (e.key === "ArrowRight") goNext();
       else if (e.key === "ArrowLeft") goPrev();
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [onClose, goNext, goPrev]);
-
-  useEffect(() => {
-    const previousFocus = document.activeElement;
-    closeButton.current?.focus();
-    return () => previousFocus?.focus();
-  }, []);
 
   if (!images?.length) return null;
   const currentImage = images[currentIndex];
@@ -49,10 +43,7 @@ export default function ImageLightbox({ images, initialIndex = 0, onClose }) {
       : currentImage?.url || currentImage?.image_url;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Trade-in photos"
+    <ModalOverlay onDismiss={onClose} aria-label="Trade-in photos"
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm"
       onClick={onClose}
     >
@@ -140,6 +131,6 @@ export default function ImageLightbox({ images, initialIndex = 0, onClose }) {
           </button>
         </>
       )}
-    </div>
+    </ModalOverlay>
   );
 }

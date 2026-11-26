@@ -279,18 +279,17 @@ def restock_available(store_url: str, customer_name: str,
     return subject, body
 
 
-def purchase_completed(store_url: str, customer_name: str,
-                       vehicle_label: str) -> tuple[str, str]:
-    subject = f"Purchase Completed — {vehicle_label}"
-    body = _wrap(
-        _p(f"Hi {customer_name},")
-        + _p(f"Congratulations! Your purchase of the <strong>{vehicle_label}</strong> "
-             f"has been completed.")
-        + _p("Thank you for choosing AutoEdge. We hope you enjoy your new vehicle!")
-        + _button(f"{store_url}/account/overview", "My Account"),
-        "Purchase Completed 🎉"
-    )
-    return subject, body
+def purchase_completed(store_url: str, customer_name: str, vehicle_label: str,
+                       payment_confirmed: bool = True, sale_id: int | None = None) -> tuple[str, str]:
+    title = "Payment received" if payment_confirmed else "Purchase recorded"
+    next_action = ("Collect your vehicle at the showroom. Staff will verify its VIN at handover."
+                   if payment_confirmed else "The showroom will verify your payment before arranging pickup.")
+    path = f"{store_url}/account/purchases"
+    if sale_id is not None:
+        path += f"#sale-{sale_id}"
+    body = _wrap(_p(f"Hi {customer_name},") + _p(f"{title} · {vehicle_label}")
+                 + _p(next_action) + _button(path, "View purchase receipt"), title)
+    return f"{title} · {vehicle_label}", body
 
 
 def top_up(store_url: str, customer_name: str, amount: str,

@@ -15,10 +15,11 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_customer
 from app.models.customer_account import CustomerAccount
+from app.models.deal import Deal
 from app.models.reservation import Reservation
 from app.models.vehicle import Vehicle
 from app.services.reservation_service import (
-    reserve,
+    reserve, hold_quote,
     cancel,
     ReservationError,
     get_receipt_data,
@@ -43,6 +44,7 @@ def _enrich_reservation(res: Reservation, db: Session) -> ReservationResponse:
     ).first()
 
     return ReservationResponse(
+        deal_id=db.query(Deal.deal_id).filter_by(reservation_id=res.reservation_id).scalar(),
         reservation_id=res.reservation_id,
         customer_id=res.customer_id,
         vehicle_id=res.vehicle_id,
@@ -59,6 +61,14 @@ def _enrich_reservation(res: Reservation, db: Session) -> ReservationResponse:
         vehicle_price=vehicle.price if vehicle else None,
         vehicle_main_image_url=vehicle.main_image_url if vehicle else None,
     )
+
+
+@router.get("/quote/{vehicle_id}")
+def quote_reservation(vehicle_id: int, hold_days: int, account=Depends(get_current_customer), db: Session=Depends(get_db)):
+    try:
+        return hold_quote(db.get(Vehicle, vehicle_id), account.customer_id, hold_days)
+    except ReservationError as exc:
+        raise HTTPException(exc.status_code, exc.message) from exc
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -80,6 +90,7 @@ async def create_reservation(
             vehicle_id=req.vehicle_id,
             hold_days=req.hold_days,
             password=req.password,
+            quote_token=req.quote_token,
             idempotency_key=req.idempotency_key,
         )
         db.commit()

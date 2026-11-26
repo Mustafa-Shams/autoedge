@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -6,11 +6,13 @@ from app.db.base import Base
 
 class Sale(Base):
     __tablename__ = "sales"
+    __table_args__ = (UniqueConstraint("customer_id", "checkout_key", name="uq_sale_checkout"),)
 
     sale_id = Column(Integer, primary_key=True, index=True)
     vehicle_id = Column(Integer, ForeignKey("vehicles.vehicle_id", ondelete="RESTRICT"), nullable=False)
     customer_id = Column(Integer, ForeignKey("customers.customer_id", ondelete="RESTRICT"), nullable=False)
-    staff_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    staff_id = Column(Integer, ForeignKey("users.user_id"))
+    checkout_key = Column(String(36))
     sale_date = Column(DateTime, nullable=False, server_default=func.now())
     sale_price = Column(Numeric(12, 2), nullable=False)
     discount = Column(Numeric(10, 2), nullable=False, default=0)
@@ -24,6 +26,7 @@ class Sale(Base):
     trade_in_credit = Column(Numeric(12, 2), nullable=False, default=0)
 
     # Relationships
+    deal = relationship("Deal", uselist=False, viewonly=True)
     vehicle = relationship("Vehicle", back_populates="sales")
     customer = relationship("Customer", back_populates="sales")
     staff = relationship("User", back_populates="sales", foreign_keys=[staff_id])

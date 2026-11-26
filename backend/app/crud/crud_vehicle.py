@@ -14,6 +14,7 @@ from app.models.vehicle import Vehicle
 from app.models.stock_movement import StockMovement
 from app.schemas.vehicle import VehicleCreate, VehicleUpdate
 from app.services.stock_service import get_vehicle_for_update, sync_vehicle_status
+from app.services.deal_service import adjust_units
 
 
 def get_vehicle(db: Session, vehicle_id: int) -> Optional[Vehicle]:
@@ -130,6 +131,7 @@ def update_vehicle(
     # Write stock_movement row if stock changed manually
     if new_stock is not None and new_stock != old_stock:
         change_qty = new_stock - old_stock
+        adjust_units(db, vehicle_id, change_qty)
         movement = StockMovement(
             vehicle_id=vehicle_id,
             change_qty=change_qty,

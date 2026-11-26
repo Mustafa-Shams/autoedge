@@ -7,6 +7,7 @@ from app.db.base import Base
 class TestDrive(Base):
     __tablename__ = "test_drives"
 
+    deal_id = Column(Integer, ForeignKey("deals.deal_id", ondelete="SET NULL"), index=True)
     test_drive_id = Column(Integer, primary_key=True, index=True)
     customer_id = Column(Integer, ForeignKey("customers.customer_id", ondelete="CASCADE"), nullable=False)
     vehicle_id = Column(Integer, ForeignKey("vehicles.vehicle_id", ondelete="CASCADE"), nullable=False)

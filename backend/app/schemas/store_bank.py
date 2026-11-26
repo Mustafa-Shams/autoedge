@@ -20,6 +20,7 @@ class BankSummaryResponse(BaseModel):
 
 
 class BankTransactionResponse(BaseModel):
+    deal_id: int | None = None
     """A single bank transaction."""
     model_config = ConfigDict(from_attributes=True)
 
@@ -32,6 +33,7 @@ class BankTransactionResponse(BaseModel):
     description: Optional[str] = None
     reservation_id: Optional[int] = None
     service_booking_id: Optional[int] = None
+    sale_id: Optional[int] = None
     created_at: datetime
 
 
@@ -72,6 +74,7 @@ class TopUpResponse(BaseModel):
 
 class ReserveRequest(BaseModel):
     """Request to reserve a vehicle."""
+    quote_token: str | None = None
     vehicle_id: int
     hold_days: int
     password: str
@@ -96,6 +99,7 @@ class ReserveRequest(BaseModel):
 
 
 class ReservationResponse(BaseModel):
+    deal_id: int | None = None
     """A single reservation."""
     model_config = ConfigDict(from_attributes=True)
 

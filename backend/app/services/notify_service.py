@@ -19,7 +19,6 @@ from app.core.config import settings
 from app.models.customer import Customer
 from app.models.notification import Notification
 from app.models.email_outbox import EmailOutbox
-from app.services.email_templates import get_email_content
 from app.services.email_service import NOT_CONFIGURED, provider_configured
 
 logger = logging.getLogger(__name__)
@@ -67,32 +66,15 @@ def notify(
     ).first()
 
     if customer and customer.email:
-        # Try to get email content from template
-        email_content = get_email_content(
-            notification_type=notification_type,
-            store_url=settings.STORE_BASE_URL.rstrip("/"),
-            customer_name=customer.full_name or "Customer",
-            **template_kwargs,
-        )
-
-        if email_content:
-            subject, body_html = email_content
-        else:
-            # Fallback: use notification title/message as email
-            subject = title
-            body_html = f"""<html><body style="font-family:Arial,sans-serif;background:#0D0F17;padding:20px;">
-<div style="max-width:600px;margin:0 auto;background:#161821;border:1px solid #2A2D3E;border-radius:12px;padding:24px;">
-<h2 style="color:#E4E6F0;">{title}</h2>
-<p style="color:#A0A4B8;line-height:1.6;">{message}</p>
-{f'<a href="{settings.STORE_BASE_URL.rstrip("/")}{link_path}" style="color:#4D7FFF;">View Details</a>' if link_path else ''}
-</div></body></html>"""
-
+        context = dict(notification_type=notification_type, store_url=settings.STORE_BASE_URL.rstrip("/"),
+                       customer_name=customer.full_name or "Customer", **template_kwargs)
         configured = provider_configured()
         email = EmailOutbox(
             customer_id=customer_id,
             to_email=customer.email,
-            subject=subject,
-            body_html=body_html,
+            subject=title[:200],
+            render_context=dict(**context, activity_path=link_path, fallback_message=message),
+            body_html="",
             status="Queued" if configured else "Skipped",
             error_message=None if configured else NOT_CONFIGURED,
         )

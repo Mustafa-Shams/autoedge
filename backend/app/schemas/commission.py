@@ -25,6 +25,7 @@ class CommissionResponse(CommissionBase):
     model_config = ConfigDict(from_attributes=True)
 
     commission_id: int
+    earned_for: Optional[str] = None
     created_at: datetime
     paid_at: Optional[datetime] = None
     # Enriched display fields (populated by CRUD layer)

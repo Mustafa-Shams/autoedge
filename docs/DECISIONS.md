@@ -58,3 +58,34 @@ Record of design decisions made during the storefront extension build (P30–P48
 | XVII | All colors in Tailwind tokens only | Storefront uses custom CSS variables mapped to Tailwind |
 | XVIII | Show "Demo project — no real money" note near payment | Bank page, reservation payment, service booking payment |
 | XIX | Ambiguity rule — ask owner, never guess | All decisions above were reviewed |
+## Redesign decisions of November 23, 2026
+
+- A listing may have several individual units. Purchase can proceed with an unknown VIN. Handover requires an authorized staff member to verify a unique 17-character VIN on the car and record their identity and the verification time. Historical listing VINs stay on listings.
+- The demo wallet pays the current price less the verified reservation deposit. Direct self-service earns zero individual commission. A handover records one garage car. Historical sales retain their original garage and commission records.
+- A manager approves a pre-pickup cancellation. The wallet refund is 20% of cash and wallet payments, including any verified deposit. Lender funding and trade-in value are excluded. When the showroom has the trade-in, the customer agrees to its return and the manager confirms the physical return before either vehicle is released.
+- One salesperson can own the deal before payment, with a recorded sale-related conversation, completed test drive, or walk-in appointment. The existing 2.5% commission applies to the sale price after discount and becomes payable once at verified pickup.
+- Accepting a trade-in offer creates an unpublished draft. The customer approves the inspection terms before staff record physical intake. If the customer buys a showroom car, staff may publish the acquired vehicle after pickup. If the customer buys no car, a manager must first record the separate acquisition payment in full. Publication requires reviewed photos and description, preparation cost and a separate retail price.
+- When the inspected value exceeds the purchase balance, the customer and manager must agree to the exact excess and its separate settlement before purchase. The manager or authorized handover staff record the external payment reference at pickup. Standalone and excess payments are recorded outside the simulated wallet.
+- Workshop jobs and customer bookings share technician and progress. The workshop estimate and final cost are displayed separately from the booking fee and wallet refund on the customer's service receipt. A garage car with purchase or service history remains available for historical lookup.
+
+## Connected deals, custody and staff routing
+
+A vehicle-specific enquiry, drive or targeted trade opens a numbered deal. A deposit and purchase reuse its number. A later purchase of another unit has its own deal. Customers and authorized staff can attach an earlier general enquiry to a chosen active deal for the same customer. Historical activity is linked on reliable evidence. Ambiguous earlier activity remains separately labelled. Both portals use the same deal record, with customer ownership checks and staff module permissions. Appointment and trade milestones retain their dates from migration 0015 onward.
+
+The storefront uses a ten-minute signed reservation quote. It covers the customer, listing, duration, price, deposit, cancellation refund and exact hold deadline. Existing API clients can continue to reserve using their previous contract. The browser presents a fresh quote when the terms expire or change.
+
+Physical intake creates a private stock unit without a public listing. Its staff verifier records the title or ownership reference, matching VIN, odometer, condition check and approved terms version. Publication assigns the same unit to a priced listing after the financial settlement rules allow resale. Historic intake retains its original custody timestamps. Staff can verify older unpublished cars before resale.
+
+Today routes unclaimed work to active staff with full access to the relevant module, using the record number to select a duty owner from the eligible role. A manager handles cancellation approval. Existing individual assignments take precedence where that person can perform the action. Queue routing alone earns no commission.
+
+Customer notification and outbox records are written with the business event. Email rendering and delivery run in the worker transaction, including on retry.
+
+## November 24 — database testing and revision 0006
+
+Backend tests require an explicitly supplied process variable `TEST_DATABASE_URL`. The only accepted destinations are PostgreSQL on `localhost` and `127.0.0.1`. The guard pins the connection to IPv4 loopback, rejects hosted-provider markers and routing overrides, and disables dotenv during pytest and its migration subprocesses. The local role needs permission to create disposable databases. Pytest migrates and resets a generated child database and removes it at exit. Collection no longer creates or drops tables.
+
+Revision `0006_units_and_deals` now installs physical units, purchases, receipt links, sales assistance, trade acquisition and a nullable `enquiries.category`. Existing enquiries retain their original values. The repository specifies no category vocabulary. Revisions 0007–0010 remain in the chain for older installations. They recognize the consolidated installation using its deals-table comment. Revision 0016 supplies the category for installations already past 0006. It also allows the existing General specialty used for newly created, initially unbookable technicians. Service-booking refunds use the established Refund ledger type and retain their booking foreign key. Workshop, email and later deal-history changes retain their original revisions.
+
+On the transition from 0005, 0006 locks and checks each of the four known table names, then replaces empty remnants inside the migration transaction. A populated stray, incompatible existing purchase column, or surviving dependency prevents the upgrade. Downgrade refuses to discard populated purchase tables, including generated inventory rows, or populated purchase columns. Historical backfill reads existing business rows and inserts into the new tables only. A failed check rolls the transaction back. Review deployment separately from the local rehearsal.
+
+For a catalog snapshot, run `backend/venv/Scripts/python.exe scripts/db_check.py "<PostgreSQL connection string>"`. It reports non-system tables and row counts, views (including materialized views), non-internal triggers and Alembic versions in one read-only, repeatable-read transaction. The connection string comes from the command argument. The output omits it.

@@ -17,8 +17,6 @@ import pytest
 from decimal import Decimal
 from datetime import timedelta
 
-# Use in-memory SQLite for tests
-os.environ["DATABASE_URL"] = "sqlite:///./test_reservations.db"
 os.environ["SECRET_KEY"] = "test-secret-key-reservations"
 os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"
@@ -26,8 +24,7 @@ os.environ["CORS_ORIGINS"] = "http://localhost:5173"
 
 from fastapi.testclient import TestClient
 from app.main import app  # noqa: E402
-from app.db.session import engine, SessionLocal
-from app.db.base import Base
+from app.db.session import SessionLocal
 from app.core.security import hash_password, create_access_token
 from app.core.time import utcnow
 from app.models.customer import Customer
@@ -35,12 +32,10 @@ from app.models.customer_account import CustomerAccount
 from app.models.bank_account import BankAccount
 from app.models.bank_transaction import BankTransaction
 from app.models.vehicle import Vehicle
+from app.models.deal import Deal, InventoryUnit
 from app.models.reservation import Reservation
 from app.models.stock_movement import StockMovement
 
-# Recreate tables fresh
-Base.metadata.drop_all(bind=engine)
-Base.metadata.create_all(bind=engine)
 
 client = TestClient(app)
 
@@ -50,6 +45,8 @@ def _setup_test_data():
     db = SessionLocal()
     try:
         # Clear any existing data
+        db.query(Deal).delete()
+        db.query(InventoryUnit).delete()
         db.query(StockMovement).delete()
         db.query(BankTransaction).delete()
         db.query(Reservation).delete()
@@ -199,10 +196,6 @@ def _get_customer_token(customer_id=1, account_id=1):
 
 def _auth_header(customer_id=1, account_id=1):
     return {"Authorization": f"Bearer {_get_customer_token(customer_id, account_id)}"}
-
-
-# ── Setup ──
-_setup_test_data()
 
 
 # ── Test 1: Reserve reduces stock by 1 and balance by deposit ──

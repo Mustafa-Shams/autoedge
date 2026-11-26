@@ -3,7 +3,8 @@ import { Outlet, useLocation } from "react-router-dom";
 import { authApi } from "../../api/authApi";
 import { authStore } from "../../store/authStore";
 import ErrorBoundary from "../common/ErrorBoundary";
-import Sidebar from "./Sidebar";
+import ModalOverlay from "../common/ModalOverlay";
+import Sidebar, { ModuleTabs } from "./Sidebar";
 import Topbar from "./Topbar";
 
 export default function PageWrapper() {
@@ -11,6 +12,9 @@ export default function PageWrapper() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 1024px)');
+    const onResize = () => { if (desktop.matches) setSidebarOpen(false); };
+    desktop.addEventListener('change', onResize);
     let active = true;
     function refreshSession() {
       const { token } = authStore.getState();
@@ -21,6 +25,7 @@ export default function PageWrapper() {
     refreshSession();
     window.addEventListener("focus", refreshSession);
     return () => {
+      desktop.removeEventListener('change', onResize);
       active = false;
       window.removeEventListener("focus", refreshSession);
     };
@@ -28,21 +33,12 @@ export default function PageWrapper() {
 
   return (
     <div className="min-h-screen bg-bg-primary">
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 z-30 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div
-        className={`fixed left-0 top-0 h-screen z-40 transition-transform duration-200 ease-in-out ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0`}
-      >
+      {sidebarOpen && <ModalOverlay aria-label="Staff navigation" className="bg-black/60"
+        onDismiss={() => setSidebarOpen(false)} onClick={e => { if (e.target === e.currentTarget) setSidebarOpen(false); }}>
         <Sidebar onClose={() => setSidebarOpen(false)} />
+      </ModalOverlay>}
+      <div className="fixed left-0 top-0 z-40 hidden h-screen lg:block">
+        <Sidebar />
       </div>
 
       {/* Topbar */}
@@ -50,7 +46,7 @@ export default function PageWrapper() {
 
       {/* Main content */}
       <main className="lg:ml-60 pt-16 min-h-screen">
-        <div className="p-4 sm:p-6"><ErrorBoundary key={location.key}><Outlet /></ErrorBoundary></div>
+        <div className="p-4 sm:p-6"><ModuleTabs pathname={location.pathname} /><ErrorBoundary key={location.key}><Outlet /></ErrorBoundary></div>
       </main>
     </div>
   );

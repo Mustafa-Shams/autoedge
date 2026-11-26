@@ -1,20 +1,8 @@
-"""Concurrency race test — spec 7.2 GATE.
-
-10 concurrent reserve calls on a vehicle with stock=1.
-Exactly 1 success, 9 get 409, balances consistent.
-
-Note: SQLite does not support true row-level locking (FOR UPDATE),
-so this test validates the logic flow rather than true concurrent behavior.
-The real concurrency protection works on PostgreSQL (Neon).
-For SQLite, we test sequential calls to verify that the second
-request correctly gets rejected.
-"""
+"""Sequential attempts to reserve the last unit."""
 import os
 import pytest
 from decimal import Decimal
 
-# Use a separate test DB
-os.environ["DATABASE_URL"] = "sqlite:///./test_race.db"
 os.environ["SECRET_KEY"] = "test-secret-key-race"
 os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"
@@ -22,20 +10,17 @@ os.environ["CORS_ORIGINS"] = "http://localhost:5173"
 
 from fastapi.testclient import TestClient
 from app.main import app  # noqa: E402
-from app.db.session import engine, SessionLocal
-from app.db.base import Base
+from app.db.session import SessionLocal
 from app.core.security import hash_password, create_access_token
 from app.models.customer import Customer
 from app.models.customer_account import CustomerAccount
 from app.models.bank_account import BankAccount
 from app.models.bank_transaction import BankTransaction
 from app.models.vehicle import Vehicle
+from app.models.deal import Deal, InventoryUnit
 from app.models.reservation import Reservation
 from app.models.stock_movement import StockMovement
 
-# Recreate tables fresh
-Base.metadata.drop_all(bind=engine)
-Base.metadata.create_all(bind=engine)
 
 client = TestClient(app)
 
@@ -47,6 +32,8 @@ def _setup_race_data():
     db = SessionLocal()
     try:
         # Clear
+        db.query(Deal).delete()
+        db.query(InventoryUnit).delete()
         db.query(StockMovement).delete()
         db.query(BankTransaction).delete()
         db.query(Reservation).delete()
@@ -130,12 +117,7 @@ def _get_token(customer_id, account_id):
 
 
 def test_sequential_race_only_one_succeeds():
-    """10 sequential reserve calls on stock=1: exactly 1 success, 9 get 409.
-
-    Note: On SQLite, FOR UPDATE is a no-op, but the stock check still works
-    because requests are sequential. On PostgreSQL (production), true row-level
-    locking prevents overselling under concurrent requests.
-    """
+    """Ten sequential attempts on the last unit yield one success and nine conflicts."""
     _setup_race_data()
 
     success_count = 0

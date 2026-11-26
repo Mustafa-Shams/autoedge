@@ -1,5 +1,7 @@
+import ModalOverlay from '../../components/common/ModalOverlay';
 import BackButton from "../../components/common/BackButton";
-import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
@@ -126,6 +128,11 @@ export default function ReservationsStaffPage() {
 
   // Detail modal
   const [selectedReservation, setSelectedReservation] = useState(null);
+  const [params] = useSearchParams();
+  const recordId = params.get("id");
+  const record = useQuery({queryKey: ["reservation-detail", recordId], enabled: Boolean(recordId),
+    queryFn: () => reservationsApi.getById(recordId).then(r => r.data)});
+  useEffect(() => { if (record.data) setSelectedReservation(record.data); }, [record.data]);
 
   // Cancel confirmation
   const [cancelTarget, setCancelTarget] = useState(null);
@@ -407,12 +414,11 @@ export default function ReservationsStaffPage() {
 
       {/* Detail Modal */}
       {selectedReservation && (
-        <div
+        <ModalOverlay onDismiss={() => setSelectedReservation(null)} aria-label="Reservation details"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
           onClick={() => setSelectedReservation(null)}
         >
           <div
-            role="dialog" aria-modal="true" aria-label="Reservation details"
             className="bg-bg-card border border-bg-border rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
@@ -568,12 +574,12 @@ export default function ReservationsStaffPage() {
                 )}
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* Cancel Confirmation Modal */}
       {cancelTarget && (
-        <div
+        <ModalOverlay onDismiss={() => setCancelTarget(null)} aria-label="Cancel reservation"
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
           onClick={() => setCancelTarget(null)}
         >
@@ -619,7 +625,7 @@ export default function ReservationsStaffPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
 

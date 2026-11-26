@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import * as storeApi from '../../api/storeApi';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
@@ -11,6 +11,9 @@ import BackButton from '../../components/common/BackButton';
 const STATUS_FILTERS = ['All', 'Booked', 'Confirmed', 'In Progress', 'Completed', 'Cancelled'];
 
 export default function ServiceBookingsPage() {
+  const [searchParams] = useSearchParams();
+  const car = searchParams.get('car');
+  const [error, setError] = useState(false);
   const [bookings, setBookings] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -24,18 +27,20 @@ export default function ServiceBookingsPage() {
     try {
       setLoading(true);
       const params = { page, page_size: 20 };
+      setError(false);
+      if (car) params.cv_id = car;
       if (statusFilter !== 'All') params.status_filter = statusFilter;
       const res = await storeApi.getServiceBookings(params);
       setBookings(res.data.items);
       setTotal(res.data.total);
     } catch {
-      // silent
+      setError(true);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchBookings(); }, [page, statusFilter]);
+  useEffect(() => { fetchBookings(); }, [page, statusFilter, car]);
 
   const handleCancel = async () => {
     if (!cancelTarget) return;
@@ -64,13 +69,13 @@ export default function ServiceBookingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Service Bookings</h1>
+          <h1 className="text-2xl font-bold text-text-primary">{car ? 'Vehicle service history' : 'Service Bookings'}</h1>
           <p className="text-sm text-text-secondary mt-1">
             Track and manage your service appointments.
           </p>
         </div>
         <Link
-          to="/account/service-bookings/new"
+          to={car ? `/account/service-bookings/new?car=${car}` : '/account/service-bookings/new'}
           className="px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -80,6 +85,8 @@ export default function ServiceBookingsPage() {
         </Link>
       </div>
 
+      {car && <Link className="block mb-4 text-accent-blue" to="/account/service-bookings">View all service bookings</Link>}
+      {error && <p role="alert">Could not load your bookings. <button onClick={fetchBookings} className="underline">Retry</button></p>}
       {/* Cancel result toast */}
       {cancelResult && (
         <div className={`mb-4 p-3 rounded-lg text-sm border ${cancelResult.refunded ? 'bg-status-available/10 border-status-available/20 text-status-available' : 'bg-status-reserved/10 border-status-reserved/20 text-status-reserved'}`}>

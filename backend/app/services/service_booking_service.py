@@ -24,6 +24,7 @@ from app.models.customer_account import CustomerAccount
 from app.models.customer_vehicle import CustomerVehicle
 from app.models.service_booking import ServiceBooking
 from app.models.service_type import ServiceType
+from app.models.trade_acquisition import TradeAcquisition
 from app.models.technician_profile import TechnicianProfile
 from app.models.user import User
 from app.services import bank_service
@@ -36,6 +37,16 @@ class ServiceBookingError(Exception):
         self.message = message
         self.status_code = status_code
         super().__init__(message)
+
+
+def in_showroom_custody(db, car):
+    if not car.vin_number:
+        return False
+    return db.query(TradeAcquisition.trade_in_id).filter(
+        TradeAcquisition.vin == car.vin_number.strip().upper(),
+        TradeAcquisition.intake_at >= car.created_at,
+        TradeAcquisition.returned_at.is_(None),
+    ).first() is not None
 
 
 def book_service(
@@ -81,8 +92,11 @@ def book_service(
             existing_booking = db.query(ServiceBooking).filter(
                 ServiceBooking.booking_id == existing_txn.service_booking_id
             ).first()
-            if existing_booking:
+            if existing_booking and (existing_booking.customer_id, existing_booking.cv_id,
+                    existing_booking.service_type_id, existing_booking.booking_date, existing_booking.time_slot.strftime("%H:%M")) == (
+                    customer_id, cv_id, service_type_id, booking_date, time_slot):
                 return existing_booking
+            raise ServiceBookingError("Payment reference already used", 409)
 
     # 3. Validate customer vehicle belongs to this customer
     vehicle = db.query(CustomerVehicle).filter(
@@ -90,9 +104,12 @@ def book_service(
             CustomerVehicle.cv_id == cv_id,
             CustomerVehicle.customer_id == customer_id,
         )
-    ).first()
+    ).with_for_update().first()
     if not vehicle:
         raise ServiceBookingError("Vehicle not found in your garage", 404)
+
+    if in_showroom_custody(db, vehicle):
+        raise ServiceBookingError("This vehicle has been traded in", 409)
 
     # 4. Validate service type exists and is active; get booking fee
     service_type = db.query(ServiceType).filter(
@@ -216,7 +233,7 @@ def book_service(
             f"on {booking_date.strftime('%b %d, %Y')} at {time_slot} has been placed. "
             f"Booking fee of ${booking_fee:,.2f} has been charged."
         ),
-        link_path="/account/service-bookings",
+        link_path=f"/account/receipts/service/{booking.booking_id}",
         service_type=service_type.name,
         vehicle_label=vehicle_label,
         date=booking_date.strftime("%b %d, %Y"),
@@ -285,7 +302,7 @@ def cancel_booking(
             ref_code = bank_service._ensure_unique_ref(db)
             refund_txn = BankTransaction(
                 bank_account_id=bank_acct.bank_account_id,
-                txn_type="Service Booking Refund",
+                txn_type="Refund",
                 direction="Credit",
                 amount=refund_amount,
                 balance_after=new_balance,
@@ -299,6 +316,8 @@ def cancel_booking(
     # Update status
     booking.status = "Cancelled"
     booking.updated_at = utcnow()
+    if booking.job:
+        booking.job.status = "Cancelled"
 
     # Load service_type for notification
     service_type = db.query(ServiceType).filter(
@@ -321,46 +340,22 @@ def cancel_booking(
     notify(
         db,
         customer_id=customer_id,
-        notification_type="service_booked",  # reuse service_booked type for cancellation message
+        notification_type="service_cancelled",
         title="Service Booking Cancelled",
         message=msg,
-        link_path="/account/service-bookings",
+        link_path=f"/account/receipts/service/{booking.booking_id}",
     )
 
     db.flush()
     return booking
 
 
-def confirm_booking(
-    db: Session,
-    booking_id: int,
-    technician_id: int,
-) -> ServiceBooking:
-    """Staff confirms a booking: assign technician, create service_job, link it.
-
-    Per spec 7.8 step 5:
-    - Assigns technician (if "No Preference" was chosen → staff assigns now)
-    - Creates service_jobs row
-    - Links service_job_id in booking
-    - Status → Confirmed
-    """
-    from app.models.service_job import ServiceJob
-
-    booking = db.query(ServiceBooking).filter(
-        ServiceBooking.booking_id == booking_id,
-    ).first()
-    if booking is None:
-        raise ServiceBookingError("Booking not found", 404)
-    if booking.status != "Booked":
-        raise ServiceBookingError(
-            f"Cannot confirm a booking with status '{booking.status}'", 409
-        )
-
+def validate_assignment(db, booking, technician_id):
     # Validate technician
     profile = db.query(TechnicianProfile).join(TechnicianProfile.user).filter(
         TechnicianProfile.user_id == technician_id,
         TechnicianProfile.is_bookable.is_(True), User.is_active.is_(True), User.role == "technician",
-    ).first()
+    ).with_for_update(of=TechnicianProfile).first()
     if not profile:
         raise ServiceBookingError("Technician not found", 404)
 
@@ -388,10 +383,35 @@ def confirm_booking(
     if slot_conflict:
         raise ServiceBookingError("Technician already has a booking at this time slot", 409)
 
-    # Load customer vehicle for the service job
-    cv = db.query(CustomerVehicle).filter(
-        CustomerVehicle.cv_id == booking.cv_id,
-    ).first()
+    return service_type
+
+
+def confirm_booking(
+    db: Session,
+    booking_id: int,
+    technician_id: int,
+) -> ServiceBooking:
+    """Staff confirms a booking: assign technician, create service_job, link it.
+
+    Per spec 7.8 step 5:
+    - Assigns technician (if "No Preference" was chosen → staff assigns now)
+    - Creates service_jobs row
+    - Links service_job_id in booking
+    - Status → Confirmed
+    """
+    from app.models.service_job import ServiceJob
+
+    booking = db.query(ServiceBooking).filter(
+        ServiceBooking.booking_id == booking_id,
+    ).with_for_update().first()
+    if booking is None:
+        raise ServiceBookingError("Booking not found", 404)
+    if booking.status != "Booked":
+        raise ServiceBookingError(
+            f"Cannot confirm a booking with status '{booking.status}'", 409
+        )
+
+    service_type = validate_assignment(db, booking, technician_id)
 
     # Create service job
     job = ServiceJob(
@@ -430,7 +450,7 @@ def confirm_booking(
             f"{booking.time_slot.strftime('%H:%M')} has been confirmed. "
             f"Technician: {tech_name}."
         ),
-        link_path="/account/service-bookings",
+        link_path=f"/account/receipts/service/{booking.booking_id}",
         service_type=service_name,
         technician_name=tech_name,
         date=booking.booking_date.strftime("%b %d, %Y"),
@@ -479,7 +499,7 @@ def complete_booking_from_job(db: Session, job_id: int) -> Optional[ServiceBooki
             f"Your {service_name} service has been completed. "
             f"Thank you for choosing AutoEdge!"
         ),
-        link_path="/account/service-bookings",
+        link_path=f"/account/receipts/service/{booking.booking_id}",
         service_type=service_name,
         vehicle_label=vehicle_label,
     )

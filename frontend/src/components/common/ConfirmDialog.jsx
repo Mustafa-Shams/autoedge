@@ -1,14 +1,15 @@
+import ModalOverlay from './ModalOverlay';
 import { X } from "lucide-react";
 
 export default function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel, confirmLabel = "Confirm", danger = false }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+    <ModalOverlay onDismiss={onCancel} aria-label={title} className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="bg-bg-card border border-bg-border rounded-xl p-6 w-full max-w-md shadow-2xl">
         <div className="flex items-start justify-between mb-4">
           <h3 className="text-lg font-semibold text-text-primary">{title}</h3>
-          <button onClick={onCancel} className="text-text-muted hover:text-text-primary">
+          <button aria-label="Close dialog" onClick={onCancel} className="text-text-muted hover:text-text-primary">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -32,7 +33,7 @@ export default function ConfirmDialog({ isOpen, title, message, onConfirm, onCan
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }
 

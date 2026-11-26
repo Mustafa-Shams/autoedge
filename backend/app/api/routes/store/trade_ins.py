@@ -16,9 +16,12 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from app.services.deal_service import interest_id
 from app.api.deps import get_db, get_current_customer
 from app.core.config import settings
 from app.core.time import utcnow
+from app.models.trade_acquisition import TradeAcquisition
+from app.services.trade_acquisition import draft_details
 from app.models.customer_account import CustomerAccount
 from app.models.trade_in_request import TradeInRequest, TradeInImage
 from app.models.vehicle import Vehicle
@@ -83,6 +86,11 @@ class TradeInRespond(BaseModel):
     accept: bool
 
 
+class InspectionApproval(BaseModel):
+    version: int
+    accept: bool
+
+
 # ── Helpers ──────────────────────────────────────────────────────────
 
 
@@ -141,7 +149,9 @@ def _to_response(t: TradeInRequest) -> dict:
     if t.target_vehicle:
         target_label = f"{t.target_vehicle.year} {t.target_vehicle.make} {t.target_vehicle.model}"
     return {
+        "acquisition": draft_details(t),
         "trade_in_id": t.trade_in_id,
+        "deal_id": t.deal_id,
         "customer_id": t.customer_id,
         "target_vehicle_id": t.target_vehicle_id,
         "target_vehicle_label": target_label,
@@ -191,6 +201,7 @@ async def create_trade_in(
 
     now = utcnow()
     trade_in = TradeInRequest(
+        deal_id=interest_id(db, account.customer_id, body.target_vehicle_id),
         customer_id=account.customer_id,
         target_vehicle_id=body.target_vehicle_id,
         make=body.make.strip(),
@@ -279,7 +290,7 @@ async def respond_to_offer(
     """Accept or decline a trade-in offer."""
     trade_in = (
         db.query(TradeInRequest)
-        .options(joinedload(TradeInRequest.images), joinedload(TradeInRequest.target_vehicle))
+        .with_for_update()
         .filter(
             TradeInRequest.trade_in_id == trade_in_id,
             TradeInRequest.customer_id == account.customer_id,
@@ -289,6 +300,8 @@ async def respond_to_offer(
     if not trade_in:
         raise HTTPException(status_code=404, detail="Trade-in request not found.")
 
+    if trade_in.status == ("Accepted" if body.accept else "Declined"):
+        return _to_response(trade_in)
     if trade_in.status != "Offer Made":
         raise HTTPException(
             status_code=422, detail=f"Cannot respond to a trade-in with status '{trade_in.status}'."
@@ -302,11 +315,32 @@ async def respond_to_offer(
         raise HTTPException(status_code=422, detail="This offer has expired.")
 
     trade_in.status = "Accepted" if body.accept else "Declined"
+    if body.accept:
+        trade_in.acquisition = TradeAcquisition()
     trade_in.updated_at = utcnow()
     db.commit()
     db.refresh(trade_in)
 
     return _to_response(trade_in)
+
+
+@router.post("/{trade_in_id}/inspection-response")
+def approve_inspection(trade_in_id: int, body: InspectionApproval,
+                       db: Session = Depends(get_db), account=Depends(get_current_customer)):
+    trade = db.query(TradeInRequest).filter_by(trade_in_id=trade_in_id, customer_id=account.customer_id).with_for_update().one_or_none()
+    if not trade:
+        raise HTTPException(404, "Trade-in not found")
+    a = trade.acquisition
+    if trade.status != "Accepted" or not a or not a.terms_version or body.version != a.terms_version:
+        raise HTTPException(409, "Inspection terms changed. Reload before responding.")
+    if body.accept:
+        a.approved_version = body.version
+    elif a.intake_at:
+        raise HTTPException(409, "The showroom has custody. Ask the manager to revise the settlement.")
+    else:
+        trade.status = "Declined"
+    db.commit()
+    return _to_response(trade)
 
 
 @router.post("/{trade_in_id}/cancel")
@@ -315,10 +349,10 @@ async def cancel_trade_in(
     db: Session = Depends(get_db),
     account: CustomerAccount = Depends(get_current_customer),
 ):
-    """Cancel a trade-in (only while Submitted or Under Review)."""
+    """Withdraw before physical intake."""
     trade_in = (
         db.query(TradeInRequest)
-        .options(joinedload(TradeInRequest.images), joinedload(TradeInRequest.target_vehicle))
+        .with_for_update()
         .filter(
             TradeInRequest.trade_in_id == trade_in_id,
             TradeInRequest.customer_id == account.customer_id,
@@ -328,10 +362,10 @@ async def cancel_trade_in(
     if not trade_in:
         raise HTTPException(status_code=404, detail="Trade-in request not found.")
 
-    if trade_in.status not in ("Submitted", "Under Review"):
+    if trade_in.status not in ("Submitted", "Under Review", "Offer Made", "Accepted") or (trade_in.acquisition and trade_in.acquisition.intake_at):
         raise HTTPException(
             status_code=422,
-            detail=f"Cannot cancel a trade-in with status '{trade_in.status}'. Only 'Submitted' or 'Under Review' can be cancelled."
+            detail="A trade-in can be withdrawn before physical intake."
         )
 
     trade_in.status = "Cancelled"

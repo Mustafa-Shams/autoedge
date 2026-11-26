@@ -23,6 +23,7 @@ export default function WishlistPage() {
   const fetchWishlist = async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await getWishlist();
       setItems(res.data);
     } catch {
@@ -41,7 +42,7 @@ export default function WishlistPage() {
       await removeFromWishlist(removeTarget);
       setItems((prev) => prev.filter((i) => i.vehicle_id !== removeTarget));
     } catch {
-      // silently fail
+      setError('Could not remove this vehicle. Try again.');
     } finally {
       setRemoving(false);
       setRemoveTarget(null);
@@ -70,11 +71,11 @@ export default function WishlistPage() {
 
       {error && (
         <div className="bg-status-cancelled/10 border border-status-cancelled/20 rounded-xl p-4 mb-6">
-          <p className="text-sm text-status-cancelled">{error}</p>
+          <p className="text-sm text-status-cancelled">{error} <button className="underline" onClick={fetchWishlist}>Retry</button></p>
         </div>
       )}
 
-      {items.length === 0 ? (
+      {!error && items.length === 0 ? (
         <EmptyState
           title="Your wishlist is empty"
           description="Browse our inventory and save your favourite vehicles"
@@ -105,6 +106,9 @@ export default function WishlistPage() {
                 <div className="flex items-center gap-2 mt-1">
                   <p className="text-sm font-bold text-accent-blue">{formatPrice(item.price, false)}</p>
                   <StockBadge stock={item.stock_quantity} />
+                </div>
+                <div className="mt-2">
+                  <Link className="text-sm text-accent-blue underline" to={item.stock_quantity > 0 ? `/account/checkout/${item.vehicle_id}` : `/cars/${item.vehicle_id}`}>{item.stock_quantity > 0 ? 'Buy now' : 'View restock options'}</Link>
                 </div>
                 <div className="flex items-center gap-2 mt-1">
                   {item.fuel_type && <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted">{item.fuel_type}</span>}

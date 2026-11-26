@@ -5,7 +5,7 @@ When a sale becomes Completed:
   do NOT decrement stock again (already decremented on reserve).
 - Else: lock vehicle, check stock ≥ 1, decrement stock, write stock_movement (Sale).
 - If trade_in_id: set trade_in_credit, mark trade-in Completed.
-- Create customer_vehicle so car appears in the customer's garage.
+- Allocate one physical unit for staff-verified pickup.
 - Commission creation stays as in v1.0.
 - Balance due = sale_price - discount - deposit_credit - trade_in_credit.
 """
@@ -14,21 +14,24 @@ from typing import List, Optional
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from app.core.time import utcnow
 from app.models.sale import Sale
 from app.models.vehicle import Vehicle
 from app.models.customer import Customer
-from app.models.customer_vehicle import CustomerVehicle
+from app.models.deal import Deal
+from app.models.enquiry import Enquiry
 from app.models.user import User
-from app.models.commission import Commission
 from app.models.reservation import Reservation
 from app.models.stock_movement import StockMovement
 from app.models.trade_in_request import TradeInRequest
 from app.models.notification import Notification
 from app.schemas.sale import SaleCreate, SaleUpdate
 from app.services.notify_service import notify
+from app.services.deal_service import assign_sale
+from app.services.sales_assistance import attach_owner
+from app.services.trade_acquisition import trade_credit
 from app.services.stock_service import get_vehicle_for_update, sync_vehicle_status
 
 
@@ -40,11 +43,25 @@ def _enrich(sale: Sale, db: Session) -> Sale:
     sale.vehicle_info = f"{v.year} {v.make} {v.model}" if v else None
     sale.customer_name = c.full_name if c else None
     sale.staff_name = s.full_name if s else None
+    deal = db.query(Deal).filter_by(sale_id=sale.sale_id).one_or_none()
+    sale.deal_id = deal.deal_id if deal else None
+    sale.pickup_status = deal.stage if deal else None
+    sale.refund_requested = bool(deal and deal.refund_requested_at)
+    sale.unit_id = deal.unit_id if deal else None
+    sale.payment_verified = bool(deal and (deal.payment_verified_at or sale.payment_type == "Demo Wallet"))
+    acquisition = sale.trade_in.acquisition if sale.trade_in else None
+    sale.excess_at_pickup = acquisition.excess_amount if acquisition else 0
+    sale.cash_received = deal.cash_received if deal else None
+    sale.external_funding = deal.external_funding if deal else None
+    sale.pickup_deadline = deal.pickup_deadline.replace(tzinfo=timezone.utc) if deal and deal.pickup_deadline else None
+    sale.enquiry_id = db.query(Enquiry.enquiry_id).filter_by(sale_id=sale.sale_id).scalar()
 
     # Calculate balance due at showroom
     sale.balance_due_at_showroom = (
         sale.sale_price - sale.discount - sale.deposit_credit - sale.trade_in_credit
     )
+    if sale.payment_verified:
+        sale.balance_due_at_showroom = Decimal("0")
     return sale
 
 
@@ -64,7 +81,7 @@ def get_sales(
 ) -> List[Sale]:
     q = db.query(Sale)
     if staff_id:
-        q = q.filter(Sale.staff_id == staff_id)
+        q = q.filter(or_(Sale.staff_id == staff_id, Sale.staff_id.is_(None)))
     if status:
         q = q.filter(Sale.status == status)
     sales = q.order_by(Sale.sale_date.desc()).offset(skip).limit(limit).all()
@@ -73,21 +90,21 @@ def get_sales(
     return sales
 
 
-def _handle_completion(db: Session, sale: Sale, obj_in) -> None:
+def complete_sale(db: Session, sale: Sale) -> None:
     """Handle all side effects when a sale transitions to Completed.
 
     Per spec 7.2:
     - If reservation_id: convert reservation, set deposit_credit, no stock decrement.
     - Else: lock vehicle, decrement stock, write stock_movement.
     - If trade_in_id: set trade_in_credit, mark trade-in Completed.
-    - Create customer_vehicle (garage entry).
-    - Create commission at 2.5%.
+    - Keep the unit allocated through pickup.
+    - Queue pickup. Assisted-sale commission is earned at handover.
     - Create purchase_completed notification.
     """
     vehicle = get_vehicle_for_update(db, sale.vehicle_id)
 
     # ── Handle reservation linkage ──
-    reservation_id = getattr(obj_in, 'reservation_id', None) or sale.reservation_id
+    reservation_id = sale.reservation_id
     if reservation_id:
         reservation = (
             db.query(Reservation)
@@ -136,7 +153,7 @@ def _handle_completion(db: Session, sale: Sale, obj_in) -> None:
             db.add(movement)
 
     # ── Handle trade-in linkage ──
-    trade_in_id = getattr(obj_in, 'trade_in_id', None) or sale.trade_in_id
+    trade_in_id = sale.trade_in_id
     if trade_in_id:
         trade_in = (
             db.query(TradeInRequest)
@@ -150,56 +167,38 @@ def _handle_completion(db: Session, sale: Sale, obj_in) -> None:
             raise ValueError(f"Trade-in {trade_in_id} is not Accepted (status: {trade_in.status})")
         if trade_in.customer_id != sale.customer_id:
             raise ValueError("Trade-in customer does not match sale customer")
+        if trade_in.target_vehicle_id and trade_in.target_vehicle_id != sale.vehicle_id:
+            raise ValueError("Trade-in offer applies to another vehicle")
 
         # Set trade-in credit
         sale.trade_in_id = trade_in_id
-        sale.trade_in_credit = trade_in.offered_value or Decimal("0")
+        sale.trade_in_credit = trade_credit(trade_in, sale.customer_id, sale.vehicle_id,
+                                           sale.sale_price - sale.discount - sale.deposit_credit)
 
         # Mark trade-in completed
         trade_in.status = "Completed"
         trade_in.updated_at = utcnow()
 
-    # ── Create customer_vehicle (garage entry) ──
-    if vehicle:
-        cv = CustomerVehicle(
-            customer_id=sale.customer_id,
-            make=vehicle.make,
-            model=vehicle.model,
-            year=vehicle.year,
-            color=vehicle.color,
-            vin_number=vehicle.vin_number,
-            source_sale_id=sale.sale_id,
-        )
-        db.add(cv)
-
-    # ── Auto-create commission at 2.5% ──
-    existing_comm = db.query(Commission).filter(Commission.sale_id == sale.sale_id).first()
-    if not existing_comm:
-        rate = Decimal("2.50")
-        commission_amt = (sale.sale_price - sale.discount) * rate / 100
-        commission = Commission(
-            staff_id=sale.staff_id,
-            sale_id=sale.sale_id,
-            rate_percent=rate,
-            commission_amt=commission_amt,
-        )
-        db.add(commission)
+    deal = assign_sale(db, sale)
+    attach_owner(db, sale, deal)
 
     # ── Notification + email ──
     vehicle_label = f"{vehicle.year} {vehicle.make} {vehicle.model}" if vehicle else "your vehicle"
+    paid = sale.payment_type == "Demo Wallet"
+    title = "Payment received" if paid else "Purchase recorded"
+    next_action = ("Showroom staff will verify the VIN at pickup." if paid else
+                   "The showroom will verify your payment before arranging pickup.")
     notify(
-        db,
-        customer_id=sale.customer_id,
-        notification_type="purchase_completed",
-        title=f"Purchase Complete — {vehicle_label}",
-        message=f"Congratulations! Your purchase of the {vehicle_label} is complete. "
-                f"The car has been added to your garage.",
-        link_path="/account/garage",
-        vehicle_label=vehicle_label,
+        db, customer_id=sale.customer_id, notification_type="purchase_completed",
+        title=f"{title} · {vehicle_label}", message=f"{vehicle_label}. {next_action}",
+        link_path=f"/account/deals/{deal.deal_id}",
+        vehicle_label=vehicle_label, payment_confirmed=paid, sale_id=sale.sale_id,
     )
 
 
 def create_sale(db: Session, obj_in: SaleCreate) -> Sale:
+    if obj_in.payment_type not in ("Cash", "Finance", "Lease"):
+        raise ValueError("Choose a staff payment method")
     if obj_in.status == "Completed":
         get_vehicle_for_update(db, obj_in.vehicle_id)
     sale_data = obj_in.model_dump()
@@ -208,7 +207,7 @@ def create_sale(db: Session, obj_in: SaleCreate) -> Sale:
     db.flush()  # get sale_id before commit
 
     if obj_in.status == "Completed":
-        _handle_completion(db, db_sale, obj_in)
+        complete_sale(db, db_sale)
 
     db.commit()
     db.refresh(db_sale)
@@ -221,6 +220,13 @@ def update_sale(db: Session, sale_id: int, obj_in: SaleUpdate) -> Optional[Sale]
     if not sale:
         return None
     data = obj_in.model_dump(exclude_unset=True)
+    if "payment_type" in data and data["payment_type"] not in ("Cash", "Finance", "Lease"):
+        raise ValueError("Choose a staff payment method")
+    settled = sale.status == "Completed" or db.query(Deal.deal_id).filter_by(sale_id=sale_id).first() is not None
+    if settled and any(
+        key != "notes" and value != getattr(sale, key) for key, value in data.items()
+    ):
+        raise ValueError("Only notes can be changed after a sale is completed")
 
     # Handle status transition to Completed
     if data.get("status") == "Completed" and sale.status != "Completed":
@@ -233,7 +239,7 @@ def update_sale(db: Session, sale_id: int, obj_in: SaleUpdate) -> Optional[Sale]
         for field, value in data.items():
             setattr(sale, field, value)
 
-        _handle_completion(db, sale, obj_in)
+        complete_sale(db, sale)
     else:
         # Cancelling a Completed sale is NOT supported (spec 7.2)
         if sale.status == "Completed" and data.get("status") == "Cancelled":

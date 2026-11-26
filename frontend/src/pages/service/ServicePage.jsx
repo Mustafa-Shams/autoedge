@@ -1,5 +1,7 @@
+import { useAuth } from "../../hooks/useAuth";
+import { hasModuleAccess } from "../../utils/staffAccess";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Filter } from "lucide-react";
 import { serviceApi } from "../../api/serviceApi";
@@ -46,12 +48,16 @@ const COLUMNS = [
 
 export default function ServicePage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canWrite = hasModuleAccess(user, "service", true);
+  const [params] = useSearchParams();
+  const record = params.get("id");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
 
-  const { data: jobs = [], isLoading } = useQuery({
-    queryKey: ["service-jobs", statusFilter, page],
-    queryFn: () =>
+  const { data: jobs = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ["service-jobs", record, statusFilter, page],
+    queryFn: () => record ? serviceApi.get(record).then(row => [row]) :
       serviceApi.list({
         skip: (page - 1) * PAGE_SIZE,
         limit: PAGE_SIZE,
@@ -64,6 +70,8 @@ export default function ServicePage() {
   return (
 
       <div className="space-y-5">
+        {isError && <p role="alert">Could not load this record. <button className="underline" onClick={() => refetch()}>Retry</button></p>}
+        {record && <Link className="underline" to="/service">View all records</Link>}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-text-primary">
@@ -73,12 +81,12 @@ export default function ServicePage() {
               Manage vehicle service and maintenance
             </p>
           </div>
-          <button
+          {canWrite && <button
             onClick={() => navigate("/service/new")}
             className="flex items-center gap-2 bg-accent-blue hover:bg-accent-blueHover text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
           >
             <Plus className="w-4 h-4" /> Create Service Job
-          </button>
+          </button>}
         </div>
 
         <div className="relative w-52">
@@ -113,7 +121,7 @@ export default function ServicePage() {
             page={page}
             totalPages={totalPages}
             onPageChange={setPage}
-            onRowClick={(row) => navigate(`/service/${row.job_id}/edit`)}
+            onRowClick={(row) => navigate((canWrite && user.role !== "receptionist") ? `/service/${row.job_id}/edit` : `/service?id=${row.job_id}`)}
           />
         )}
       </div>

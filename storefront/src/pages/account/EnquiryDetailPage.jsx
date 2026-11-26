@@ -127,6 +127,8 @@ export default function EnquiryDetailPage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <h1 className="text-lg font-bold text-text-primary">{enquiry.subject}</h1>
+              {enquiry.deal_id && <Link className="block underline" to={`/account/deals/${enquiry.deal_id}`}>Deal #{enquiry.deal_id}</Link>}
+              {enquiry.sale_id && <Link className="text-accent-blue" to={`/account/purchases#sale-${enquiry.sale_id}`}>View purchase receipt</Link>}
               <span
                 className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full ${
                   STATUS_COLORS[enquiry.status] || 'bg-bg-elevated text-text-muted'

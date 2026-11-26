@@ -1,3 +1,5 @@
+import { useSearchParams } from "react-router-dom";
+import ModalOverlay from '../../components/common/ModalOverlay';
 /**
  * ServiceBookingsStaffPage — Staff view for online service bookings.
  *
@@ -74,6 +76,16 @@ export default function ServiceBookingsStaffPage() {
 
   // Detail drawer state
   const [detailBooking, setDetailBooking] = useState(null);
+
+  const [params] = useSearchParams();
+  const recordId = params.get("id");
+  useEffect(() => {
+    let current = true;
+    if (recordId) axiosInstance.get(`/api/v1/service-bookings/${recordId}`).then(({data}) => {
+      if (current) setDetailBooking(data);
+    }).catch(() => { if (current) setError("Could not open that booking"); });
+    return () => { current = false; };
+  }, [recordId]);
 
   // ── Fetch bookings ──────────────────────────────────────────────
   const fetchBookings = useCallback(async () => {
@@ -459,7 +471,7 @@ export default function ServiceBookingsStaffPage() {
 
       {/* ── Detail Drawer ─────────────────────────────────────────── */}
       {detailBooking && (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <ModalOverlay onDismiss={() => setDetailBooking(null)} aria-label="Service booking details" className="fixed inset-0 z-50 flex justify-end">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -659,12 +671,12 @@ export default function ServiceBookingsStaffPage() {
               )}
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* ── Confirm Modal ─────────────────────────────────────────── */}
       {confirmTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <ModalOverlay onDismiss={closeConfirmModal} aria-label="Confirm appointment" className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -798,7 +810,7 @@ export default function ServiceBookingsStaffPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
 

@@ -15,19 +15,13 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-# Use in-memory SQLite for tests
-os.environ["DATABASE_URL"] = "sqlite:///./test.db"
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
 os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"
 os.environ["CORS_ORIGINS"] = "http://localhost:5173"
 
 from app.main import app  # noqa: E402
-from app.db.session import engine
-from app.db.base import Base
 
-# Create all tables in SQLite for testing
-Base.metadata.create_all(bind=engine)
 
 client = TestClient(app)
 
@@ -206,7 +200,7 @@ class TestTokenScopeIsolation:
         """Staff token on GET /store/me → 401.
 
         We create a staff-scope token manually since we don't have a staff user
-        in the SQLite test DB.
+        in the disposable test database.
         """
         from app.core.security import create_access_token
         staff_token = create_access_token(

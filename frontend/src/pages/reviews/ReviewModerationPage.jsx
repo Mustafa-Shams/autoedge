@@ -1,3 +1,4 @@
+import ModalOverlay from '../../components/common/ModalOverlay';
 import BackButton from "../../components/common/BackButton";
 /**
  * ReviewModerationPage — staff page for managers to view and moderate customer reviews.
@@ -282,9 +283,9 @@ export default function ReviewModerationPage() {
 
       {/* Detail Modal */}
       {selectedReview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <ModalOverlay onDismiss={() => setSelectedReview(null)} aria-label="Review details" className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedReview(null)} />
-          <div role="dialog" aria-modal="true" aria-label="Review details" className="relative bg-bg-card border border-bg-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+          <div  className="relative bg-bg-card border border-bg-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-bg-border sticky top-0 bg-bg-card z-10">
               <div className="flex items-center gap-3">
@@ -374,7 +375,7 @@ export default function ReviewModerationPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
 

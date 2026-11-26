@@ -23,3 +23,4 @@ export const getTradeIn = (id) => axiosInstance.get(`/api/v1/trade-ins/${id}`);
  * [manager, sales_executive]
  */
 export const updateTradeIn = (id, data) => axiosInstance.put(`/api/v1/trade-ins/${id}`, data);
+export const processAcquisition = (id, data) => axiosInstance.post(`/api/v1/trade-ins/${id}/acquisition`, data);

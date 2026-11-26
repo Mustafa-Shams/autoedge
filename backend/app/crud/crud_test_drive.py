@@ -5,6 +5,7 @@ from app.models.test_drive import TestDrive
 from app.models.customer import Customer
 from app.models.vehicle import Vehicle
 from app.models.user import User
+from app.services.deal_service import interest_id
 from app.schemas.test_drive import TestDriveCreate, TestDriveUpdate
 
 
@@ -57,7 +58,7 @@ def get_test_drives(
 
 
 def create_test_drive(db: Session, obj_in: TestDriveCreate) -> TestDrive:
-    td = TestDrive(**obj_in.model_dump())
+    td = TestDrive(**obj_in.model_dump(), deal_id=interest_id(db, obj_in.customer_id, obj_in.vehicle_id))
     db.add(td)
     db.commit()
     db.refresh(td)

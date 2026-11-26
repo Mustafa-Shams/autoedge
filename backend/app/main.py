@@ -18,6 +18,8 @@ from app.api.routes.store import reviews as store_reviews
 from app.api.routes.store import trade_ins as store_trade_ins
 from app.api.routes.store import garage as store_garage
 from app.api.routes.store import service_bookings as store_service_bookings
+from app.api.routes import deals
+from app.api.routes.store import purchases as store_purchases
 from app.api.routes.public import catalog as public_catalog
 from app.api.routes import reservations as staff_reservations
 from app.api.routes import enquiries as staff_enquiries
@@ -27,6 +29,7 @@ from app.api.routes import trade_ins as staff_trade_ins
 from app.api.routes import service_bookings as staff_service_bookings
 from app.api.routes import email_log as staff_email_log
 from app.api.routes import technician_profiles as staff_technician_profiles
+from app.api.routes import sales_assistance, today
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +114,9 @@ app.include_router(users.router, prefix=PREFIX, dependencies=[Depends(require_mo
 app.include_router(vehicles.router, prefix=PREFIX, dependencies=[Depends(require_module("vehicles"))])
 app.include_router(customers.router, prefix=PREFIX, dependencies=[Depends(require_module("customers"))])
 app.include_router(test_drives.router, prefix=PREFIX, dependencies=[Depends(require_module("test_drives"))])
+app.include_router(sales_assistance.router, prefix=PREFIX, dependencies=[Depends(require_module("sales"))])
 app.include_router(sales.router, prefix=PREFIX, dependencies=[Depends(require_module("sales"))])
+app.include_router(today.router, prefix=PREFIX)
 app.include_router(service.router, prefix=PREFIX, dependencies=[Depends(require_module("service"))])
 app.include_router(commissions.router, prefix=PREFIX, dependencies=[Depends(require_module("commissions"))])
 app.include_router(dashboard.router, prefix=PREFIX, dependencies=[Depends(require_module("dashboard"))])
@@ -131,6 +136,8 @@ app.include_router(store_reviews.router, prefix=PREFIX)
 app.include_router(store_trade_ins.router, prefix=PREFIX)
 app.include_router(store_garage.router, prefix=PREFIX)
 app.include_router(store_service_bookings.router, prefix=PREFIX)
+app.include_router(deals.router, prefix=PREFIX)
+app.include_router(store_purchases.router, prefix=PREFIX)
 # Public routes (no auth)
 app.include_router(public_catalog.router, prefix=PREFIX)
 # Staff additions for storefront

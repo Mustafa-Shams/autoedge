@@ -9,7 +9,7 @@
  * 5. Payment confirmation (password + idempotency key)
  */
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import * as storeApi from '../../api/storeApi';
 import * as publicApi from '../../api/publicApi';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -54,6 +54,9 @@ const TIME_SLOTS = Array.from({ length: 8 }, (_, i) => {
 export default function NewServiceBookingPage() {
   const navigate = useNavigate();
 
+  const [searchParams] = useSearchParams();
+  const requestedCar = Number(searchParams.get('car'));
+
   // Data
   const [garageCars, setGarageCars] = useState([]);
   const [serviceTypes, setServiceTypes] = useState([]);
@@ -90,7 +93,13 @@ export default function NewServiceBookingPage() {
           storeApi.getGarage(),
           publicApi.getServiceTypes(),
         ]);
-        setGarageCars(carsRes.data);
+        const availableCars = carsRes.data.filter(car => !car.traded_in);
+        setGarageCars(availableCars);
+        const requested = availableCars.find(car => car.cv_id === requestedCar);
+        if (requested) {
+          setSelectedCar(requested);
+          setStep(2);
+        }
         setServiceTypes(typesRes.data.filter(t => t.is_active !== false));
       } catch {
         setError('Failed to load data. Please try again.');
@@ -99,7 +108,7 @@ export default function NewServiceBookingPage() {
       }
     };
     loadAll();
-  }, []);
+  }, [requestedCar]);
 
   // Load technicians when service type is selected (filter by specialty)
   useEffect(() => {
@@ -189,6 +198,7 @@ export default function NewServiceBookingPage() {
   if (loadingInit) return <LoadingSpinner text="Loading…" />;
 
   // ── No cars in garage ─────────────────────────────────────────────
+  if (error && !garageCars.length) return <p role="alert">{error} <button className="underline" onClick={() => window.location.reload()}>Retry</button></p>;
   if (garageCars.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">

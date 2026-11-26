@@ -6,12 +6,14 @@ Date from today to +30 days; a slot today must start at least 2 hours from now.
 Vehicle must be published with stock_quantity > 0.
 """
 from datetime import date, time, timedelta, datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import List, Optional
 
 from sqlalchemy import and_, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.services.deal_service import interest_id
 from app.core.config import settings
 from app.core.time import utcnow
 from app.models.test_drive import TestDrive
@@ -35,14 +37,15 @@ class TestDriveError(Exception):
 
 
 def _slot_datetime(d: date, t: time) -> datetime:
-    """Combine date and time into a UTC-aware datetime."""
-    return datetime.combine(d, t, tzinfo=timezone.utc)
+    """Convert a showroom slot to the database's naive UTC convention."""
+    local = datetime.combine(d, t, tzinfo=ZoneInfo(settings.SHOWROOM_TIMEZONE))
+    return local.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def validate_slot(scheduled_date: date, scheduled_time: time) -> None:
     """Validate the requested slot against business rules."""
     now = utcnow()
-    today = now.date()
+    today = now.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(settings.SHOWROOM_TIMEZONE)).date()
 
     # Must not be in the past
     if scheduled_date < today:
@@ -125,6 +128,7 @@ def request_test_drive(
 
     # Insert test drive
     td = TestDrive(
+        deal_id=interest_id(db, customer_id, vehicle_id),
         customer_id=customer_id,
         vehicle_id=vehicle_id,
         scheduled_date=scheduled_date,
@@ -206,7 +210,7 @@ def cancel_test_drive(
     notify(
         db,
         customer_id=customer_id,
-        notification_type="test_drive_requested",  # cancel uses generic type
+        notification_type="test_drive_cancelled",
         title="Test Drive Cancelled",
         message=f"Your test drive for {vehicle_name} on "
                 f"{td.scheduled_date.strftime('%b %d, %Y')} has been cancelled.",

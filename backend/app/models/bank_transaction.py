@@ -18,6 +18,7 @@ class BankTransaction(Base):
     description = Column(String(200))
     reservation_id = Column(Integer, ForeignKey("reservations.reservation_id", ondelete="SET NULL"))
     service_booking_id = Column(Integer, ForeignKey("service_bookings.booking_id", ondelete="SET NULL"))
+    sale_id = Column(Integer, ForeignKey("sales.sale_id"), index=True)
     created_at = Column(DateTime, nullable=False, default=utcnow)
 
     # Relationships

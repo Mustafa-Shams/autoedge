@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useWatch } from "react-hook-form";
 import { Bookmark, ArrowRightLeft, Info } from "lucide-react";
 import { salesApi } from "../../api/salesApi";
+import SalesAssistance from "./SalesAssistance";
 import { vehiclesApi } from "../../api/vehiclesApi";
 import { customersApi } from "../../api/customersApi";
 import { useAuth } from "../../hooks/useAuth";
@@ -43,6 +44,7 @@ export default function SaleFormPage() {
   });
 
   const selectedCustomerId = watch("customer_id");
+  const selectedVehicleId = watch("vehicle_id");
   const salePrice = parseFloat(watch("sale_price")) || 0;
   const discount = parseFloat(watch("discount")) || 0;
 
@@ -277,16 +279,13 @@ export default function SaleFormPage() {
                 </div>
               </div>
 
-              {/* Commission Preview */}
-              <div className="mt-3 bg-status-available/10 border border-status-available/20 rounded-lg px-4 py-3">
-                <p className="text-xs text-text-muted mb-1">Commission Preview (2.5%)</p>
-                <p className="text-lg font-bold text-status-available">${commissionPreview}</p>
-                <p className="text-xs text-text-muted">Applied when sale status is Completed</p>
-              </div>
             </div>
           )}
 
           {/* Notes */}
+          {selectedCustomerId && selectedVehicleId && user &&
+            <SalesAssistance key={`${selectedCustomerId}-${selectedVehicleId}`} customer={selectedCustomerId}
+              vehicle={selectedVehicleId} user={user} commission={commissionPreview} />}
           <div className="bg-bg-card border border-bg-border rounded-xl p-6">
             <Field label="Notes">
               <textarea {...register("notes")} rows={3} className="input resize-none" placeholder="Additional notes..." />
@@ -311,10 +310,10 @@ export default function SaleFormPage() {
 
 function Field({ label, error, children }) {
   return (
-    <div>
-      <label className="block text-xs font-medium uppercase tracking-wide text-text-muted mb-1.5">{label}</label>
+    <label className="block">
+      <span className="block text-xs font-medium uppercase tracking-wide text-text-muted mb-1.5">{label}</span>
       {children}
       {error && <p className="text-xs text-status-cancelled mt-1">{error}</p>}
-    </div>
+    </label>
   );
 }

@@ -30,27 +30,18 @@ export default function useCompare() {
     return () => window.removeEventListener(COMPARE_EVENT, handler);
   }, []);
 
-  const toggle = (vehicleId) => {
-    setCompareIds((prev) => {
-      let next;
-      if (prev.includes(vehicleId)) {
-        next = prev.filter((id) => id !== vehicleId);
-      } else if (prev.length < 3) {
-        next = [...prev, vehicleId];
-      } else {
-        return prev; // max 3
-      }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      window.dispatchEvent(new Event(COMPARE_EVENT));
-      return next;
-    });
-  };
-
-  const clear = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
-    setCompareIds([]);
+  const setSelection = (ids) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+    setCompareIds(ids);
     window.dispatchEvent(new Event(COMPARE_EVENT));
   };
+
+  const toggle = (id) => {
+    if (compareIds.includes(id)) setSelection(compareIds.filter(value => value !== id));
+    else if (compareIds.length < 3) setSelection([...compareIds, id]);
+  };
+
+  const clear = () => setSelection([]);
 
   const isSelected = (vehicleId) => compareIds.includes(vehicleId);
 

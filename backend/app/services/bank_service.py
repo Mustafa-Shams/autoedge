@@ -228,7 +228,9 @@ def get_statement(
     q = db.query(BankTransaction).filter(
         BankTransaction.bank_account_id == bank_acct.bank_account_id
     )
-    if txn_type:
+    if txn_type in ("Debit", "Credit"):
+        q = q.filter(BankTransaction.direction == txn_type)
+    elif txn_type:
         q = q.filter(BankTransaction.txn_type == txn_type)
 
     total = q.count()

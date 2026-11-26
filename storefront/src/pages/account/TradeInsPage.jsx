@@ -4,8 +4,8 @@
  * Spec 7.7.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import { getTradeIns, respondToTradeIn, cancelTradeIn } from '../../api/storeApi';
+import { useSearchParams, Link } from 'react-router-dom';
+import { getTradeIns, respondToTradeIn, cancelTradeIn, respondToInspection } from '../../api/storeApi';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatPrice, formatDate, formatCountdown } from '../../utils/formatters';
@@ -23,7 +23,10 @@ const STATUS_COLORS = {
 };
 
 export default function TradeInsPage() {
-  const [tradeIns, setTradeIns] = useState([]);
+  const [allRecords, setTradeIns] = useState([]);
+  const [params] = useSearchParams();
+  const record = params.get('id');
+  const tradeIns = record ? allRecords.filter(item => String(item.trade_in_id) === record) : allRecords;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionTarget, setActionTarget] = useState(null); // { trade_in_id, action: 'accept'|'decline'|'cancel' }
@@ -68,13 +71,20 @@ export default function TradeInsPage() {
     }
   };
 
+  async function inspection(trade, accept) {
+    setActing(true);
+    try { await respondToInspection(trade.trade_in_id, trade.acquisition.version, accept); await fetchTradeIns(); }
+    catch (err) { setError(err.response?.data?.detail || 'Could not record your decision.'); }
+    finally { setActing(false); }
+  }
+
   const getConfirmMessage = () => {
     if (!actionTarget) return '';
     const ti = tradeIns.find((t) => t.trade_in_id === actionTarget.trade_in_id);
     const label = ti ? `${ti.year} ${ti.make} ${ti.model}` : 'this vehicle';
     switch (actionTarget.action) {
       case 'accept':
-        return `Accept the offer of ${ti?.offered_value ? formatPrice(ti.offered_value) : 'N/A'} for your ${label}? The credit will be available for your next purchase.`;
+        return `Accept the offer of ${ti?.offered_value ? formatPrice(ti.offered_value) : 'N/A'} for your ${label}? The showroom will arrange an inspection. Credit becomes available after you agree to the inspected value and staff receive the car.`;
       case 'decline':
         return `Decline the offer for your ${label}? You can submit a new trade-in later.`;
       case 'cancel':
@@ -90,6 +100,7 @@ export default function TradeInsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-primary mb-1">My Trade-Ins</h1>
+          {record && <Link className="underline" to="/account/trade-ins">View all trade ins</Link>}
           <p className="text-text-secondary text-sm">View and manage your trade-in requests</p>
         </div>
         <Link
@@ -207,6 +218,7 @@ export default function TradeInsPage() {
                 )}
 
                 {/* Target vehicle */}
+                {ti.deal_id && <Link className="underline" to={`/account/deals/${ti.deal_id}`}>Deal #{ti.deal_id}</Link>}
                 {ti.target_vehicle_label && (
                   <div className="bg-bg-elevated rounded-lg p-3">
                     <p className="text-[10px] text-text-muted uppercase tracking-wider mb-0.5">Trading Towards</p>
@@ -236,6 +248,17 @@ export default function TradeInsPage() {
 
                 <div className="flex items-center gap-2">
                   {/* Accept / Decline buttons for Offer Made */}
+                  {ti.acquisition && <div className="space-y-2 text-sm">
+                    {ti.acquisition.inspection_at && <p>Inspection appointment · {new Date(ti.acquisition.inspection_at).toLocaleString()}</p>}
+                    {ti.acquisition.findings && <p>{ti.acquisition.findings} · Verified value {formatPrice(ti.acquisition.value)}</p>}
+                    {Number(ti.acquisition.excess) > 0 && <p>Separate settlement {formatPrice(ti.acquisition.excess)} · {ti.acquisition.settlement}</p>}
+                    {ti.status === 'Accepted' && ti.acquisition.version > 0 && ti.acquisition.approved_version !== ti.acquisition.version &&
+                      <div className="flex gap-4"><button disabled={acting} onClick={() => inspection(ti, true)} className="text-accent-blue">Agree to inspection terms</button>
+                        {!ti.acquisition.received && <button disabled={acting} onClick={() => inspection(ti, false)}>Decline terms</button>}</div>}
+                    {ti.acquisition.received && <p>{ti.acquisition.returned ? 'Trade-in returned to you' : 'Physical intake recorded'}</p>}
+                    {ti.acquisition.settled_amount != null && <p>Separate payment {formatPrice(ti.acquisition.settled_amount)} · {ti.acquisition.settlement_reference}</p>}
+                    {ti.acquisition.listing_id && <Link className="text-accent-blue" to={`/cars/${ti.acquisition.listing_id}`}>View resale listing</Link>}
+                  </div>}
                   {ti.status === 'Offer Made' && (
                     <>
                       <button
@@ -254,7 +277,7 @@ export default function TradeInsPage() {
                   )}
 
                   {/* Cancel button for Submitted / Under Review */}
-                  {(ti.status === 'Submitted' || ti.status === 'Under Review') && (
+                  {(['Submitted', 'Under Review', 'Accepted', 'Offer Made'].includes(ti.status) && !ti.acquisition?.received) && (
                     <button
                       onClick={() => setActionTarget({ trade_in_id: ti.trade_in_id, action: 'cancel' })}
                       className="px-3 py-1.5 text-xs text-status-cancelled hover:text-status-cancelled/80 transition-colors"
@@ -272,6 +295,8 @@ export default function TradeInsPage() {
       {/* Confirm dialog */}
       <ConfirmDialog
         isOpen={!!actionTarget}
+        isLoading={acting}
+        cancelLabel="Go back"
         title={
           actionTarget?.action === 'accept' ? 'Accept Offer' :
           actionTarget?.action === 'decline' ? 'Decline Offer' :

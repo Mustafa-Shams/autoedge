@@ -93,6 +93,7 @@ export default function ServiceFormPage() {
           </h2>
         </div>
 
+        {existing && <p>{existing.vehicle_info} · {existing.customer_name}</p>}
         {optionsError && <p role="alert" className="text-status-cancelled">Could not load service job options.</p>}
         {loadingOptions && <LoadingSpinner />}
         <form
@@ -231,19 +232,43 @@ export default function ServiceFormPage() {
             </button>
           </div>
         </form>
+        {existing && <JobParts jobId={id} />}
       </div>
 
   );
 }
 
+function JobParts({ jobId }) {
+  const parts = useQuery({ queryKey: ["service-parts", jobId], queryFn: () => serviceApi.listParts(jobId) });
+  const { register, handleSubmit, reset } = useForm({ defaultValues: { quantity: 1 } });
+  const change = useMutation({
+    mutationFn: ({ part, removeId }) => removeId ? serviceApi.deletePart(jobId, removeId) : serviceApi.addPart(jobId, part),
+    onSuccess: (_, { part }) => { if (part) reset(); parts.refetch(); },
+  });
+  return <section className="space-y-3 rounded-xl border border-bg-border bg-bg-card p-5">
+    <h3 className="font-semibold">Parts used</h3>
+    {parts.isPending && <p role="status">Loading parts…</p>}
+    {parts.isError && <p role="alert">Could not load parts. <button className="underline" onClick={() => parts.refetch()}>Retry</button></p>}
+    {parts.data?.map(p => <p key={p.part_id}>{p.quantity} × {p.part_name} · USD {p.total_cost}{' '}
+      <button disabled={change.isPending} className="underline" onClick={() => change.mutate({ removeId: p.part_id })}>Remove {p.part_name}</button></p>)}
+    <form onSubmit={handleSubmit(part => change.mutate({ part }))} className="grid gap-3 sm:grid-cols-3">
+      <label>Part name<input className="input" maxLength={100} required {...register("part_name")} /></label>
+      <label>Quantity<input className="input" type="number" required min="1" {...register("quantity", { valueAsNumber: true })} /></label>
+      <label>Unit cost (USD)<input className="input" type="number" required min="0" step="0.01" {...register("unit_cost")} /></label>
+      <button className="underline text-left" disabled={change.isPending}>Add part</button>
+    </form>
+    {change.isError && <p role="alert">{apiError(change.error, "Could not update parts.")}</p>}
+  </section>;
+}
+
 function Field({ label, error, children }) {
   return (
-    <div>
-      <label className="block text-xs font-medium uppercase tracking-wide text-text-muted mb-1.5">
+    <label className="block">
+      <span className="block text-xs font-medium uppercase tracking-wide text-text-muted mb-1.5">
         {label}
-      </label>
+      </span>
       {children}
       {error && <p className="text-xs text-status-cancelled mt-1">{error}</p>}
-    </div>
+    </label>
   );
 }

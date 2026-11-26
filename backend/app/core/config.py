@@ -1,10 +1,15 @@
+import os
+import sys
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict, field_validator
 from decimal import Decimal
 
 
+_in_tests = os.getenv("AUTOEDGE_TESTING") == "1" or "pytest" in sys.modules
+
+
 class Settings(BaseSettings):
-    model_config = ConfigDict(env_file=".env", validate_assignment=True)
+    model_config = ConfigDict(env_file=None if _in_tests else ".env", validate_assignment=True)
 
     DATABASE_URL: str
     SECRET_KEY: str
@@ -47,4 +52,10 @@ class Settings(BaseSettings):
     UNSPLASH_ACCESS_KEY: str = ""
 
 
-settings = Settings()
+if _in_tests:
+    from app.core.test_database import test_database_url
+
+    settings = Settings(_env_file=None, DATABASE_URL=test_database_url().render_as_string(hide_password=False),
+                        SECRET_KEY="local-test-only", EMAIL_PROVIDER="none")
+else:
+    settings = Settings()

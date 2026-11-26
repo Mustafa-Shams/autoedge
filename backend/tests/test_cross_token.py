@@ -8,8 +8,6 @@ Verifies that:
 import os
 import pytest
 
-# Use SQLite for tests
-os.environ["DATABASE_URL"] = "sqlite:///./test_cross_token.db"
 os.environ["SECRET_KEY"] = "test-secret-key-cross-token"
 os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"
@@ -17,8 +15,7 @@ os.environ["CORS_ORIGINS"] = "http://localhost:5173"
 
 from fastapi.testclient import TestClient
 from app.main import app  # noqa: E402
-from app.db.session import engine, SessionLocal
-from app.db.base import Base
+from app.db.session import SessionLocal
 from app.core.security import hash_password, create_access_token
 from app.core.time import utcnow
 from app.models.user import User
@@ -27,11 +24,9 @@ from app.models.customer_account import CustomerAccount
 from app.models.bank_account import BankAccount
 from app.models.bank_transaction import BankTransaction
 from app.models.vehicle import Vehicle
+from app.models.deal import Deal, InventoryUnit
 from decimal import Decimal
 
-# Recreate tables fresh
-Base.metadata.drop_all(bind=engine)
-Base.metadata.create_all(bind=engine)
 
 client = TestClient(app)
 
@@ -41,7 +36,7 @@ def _setup_data():
     db = SessionLocal()
     try:
         # Clear
-        for model in [BankTransaction, BankAccount, CustomerAccount, Customer, Vehicle, User]:
+        for model in [Deal, InventoryUnit, BankTransaction, BankAccount, CustomerAccount, Customer, Vehicle, User]:
             db.query(model).delete()
         db.commit()
 

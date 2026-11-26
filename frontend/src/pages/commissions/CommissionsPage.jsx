@@ -30,6 +30,7 @@ export default function CommissionsPage() {
   const totalPages = Math.max(1, Math.ceil(commissions.length / PAGE_SIZE));
 
   const columns = [
+    { key: "earned_for", label: "Qualifying assistance" },
     {
       key: "staff_name",
       label: "Staff",

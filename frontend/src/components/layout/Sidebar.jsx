@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -22,6 +23,7 @@ import { hasModuleAccess } from "../../utils/staffAccess";
 import { useAuth } from "../../hooks/useAuth";
 
 const navItems = [
+  { to: "/deals", module: "sales", label: "Deals", icon: ShoppingCart },
   {
     to: "/dashboard",
     module: "dashboard",
@@ -49,7 +51,7 @@ const navItems = [
   {
     to: "/sales",
     module: "sales",
-    label: "Sales",
+    label: "Sales and pickups",
     icon: ShoppingCart,
   },
   {
@@ -61,7 +63,7 @@ const navItems = [
   {
     to: "/service",
     module: "service",
-    label: "Service",
+    label: "Workshop jobs",
     icon: Wrench,
   },
   {
@@ -114,9 +116,30 @@ const navItems = [
   },
 ];
 
+const groups = [
+    ["Sales", ["sales", "reservations", "test_drives", "enquiries", "commissions"]],
+    ["Inventory", ["vehicles", "trade_ins", "restock", "reviews"]],
+    ["Service", ["service"]],
+    ["Customers", ["customers"]],
+    ["Administration", ["dashboard", "staff", "email_log"]],
+  ];
+
+export function ModuleTabs({ pathname }) {
+  const { user } = useAuth();
+  const active = navItems.find(item => pathname === item.to || pathname.startsWith(item.to + "/"));
+  const group = groups.find(([, modules]) => modules.includes(active?.module));
+  if (!group) return null;
+  const items = navItems.filter(item => group[1].includes(item.module) && hasModuleAccess(user, item.module));
+  if (items.length < 2) return null;
+  return <nav aria-label={group[0] + " sections"} className="mb-5 flex flex-wrap gap-2 border-b border-bg-border pb-2">
+    {items.map(item => <NavLink key={item.to} to={item.to} className={({isActive}) => "rounded-lg px-3 py-2 text-sm " +
+      (isActive ? "bg-bg-elevated font-semibold underline" : "text-text-secondary")}>{item.label}</NavLink>)}</nav>;
+}
+
 export default function Sidebar({ onClose }) {
   const { role, user, logout } = useAuth();
   const navigate = useNavigate();
+  const [search, setSearch] = useState("");
 
   function handleLogout() {
     logout();
@@ -124,7 +147,6 @@ export default function Sidebar({ onClose }) {
   }
 
   const visibleItems = navItems.filter((item) => hasModuleAccess(user, item.module));
-
   return (
     <aside className="h-screen w-60 bg-bg-card border-r border-bg-border flex flex-col">
       {/* Logo + mobile close */}
@@ -146,8 +168,14 @@ export default function Sidebar({ onClose }) {
       </div>
 
       {/* Nav Links */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {visibleItems.map(({ to, label, icon: Icon }) => (
+      <nav aria-label="Staff modules" className="flex-1 p-3 space-y-1 overflow-y-auto">
+        {visibleItems.length > 0 && <NavLink to="/today" onClick={onClose} className="block px-3 py-2.5 text-sm font-semibold">Today</NavLink>}
+        <input aria-label="Find a staff module" placeholder="Find a module" type="search" className="input mb-2" value={search} onChange={e => setSearch(e.target.value)} />
+        {groups.map(([name, modules]) => {
+          const items = visibleItems.filter(i => modules.includes(i.module) && (name+" "+i.label).toLowerCase().includes(search.trim().toLowerCase()));
+          return items.length > 0 && <section key={name} aria-label={name}>
+          <h2 className="px-3 pt-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">{name}</h2>
+          {items.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
@@ -163,7 +191,8 @@ export default function Sidebar({ onClose }) {
             <Icon className="w-4 h-4 flex-shrink-0" />
             {label}
           </NavLink>
-        ))}
+          ))}</section>;
+        })}
       </nav>
 
       {/* User Info + Logout */}

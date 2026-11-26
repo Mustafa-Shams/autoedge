@@ -1,3 +1,4 @@
+import ModalOverlay from '../../components/common/ModalOverlay';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as storeApi from '../../api/storeApi';
@@ -209,9 +210,16 @@ export default function GaragePage() {
                 </div>
               )}
 
+              <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                {car.traded_in ? <span>Traded in</span> : <Link className="text-accent-blue underline" to={`/account/service-bookings/new?car=${car.cv_id}`}>Book service</Link>}
+                <Link className="text-accent-blue underline" to={`/account/service-bookings?car=${car.cv_id}`}>Service history</Link>
+                {car.deal_id && <Link className="underline" to={`/account/deals/${car.deal_id}`}>Deal #{car.deal_id}</Link>}
+                {car.source_sale_id && <Link className="text-accent-blue underline" to={`/account/purchases#sale-${car.source_sale_id}`}>Purchase receipt</Link>}
+              </div>
               {/* Actions */}
               <div className="mt-4 flex items-center gap-2">
                 <button
+                  disabled={car.traded_in}
                   onClick={() => openEdit(car)}
                   className="flex-1 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary bg-bg-elevated hover:bg-bg-border rounded-lg transition-colors"
                 >
@@ -219,9 +227,9 @@ export default function GaragePage() {
                 </button>
                 <button
                   onClick={() => setDeleteTarget(car)}
-                  disabled={car.has_active_booking}
+                  disabled={car.has_history || car.traded_in}
                   className="flex-1 py-1.5 text-xs font-medium text-status-cancelled hover:text-status-cancelled/80 bg-status-cancelled/10 hover:bg-status-cancelled/20 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  title={car.has_active_booking ? 'Cannot delete — has active booking' : 'Remove vehicle'}
+                  title={car.has_history || car.traded_in ? 'Kept for purchase, trade-in or service history' : 'Remove vehicle'}
                 >
                   Remove
                 </button>
@@ -231,27 +239,9 @@ export default function GaragePage() {
         </div>
       )}
 
-      {/* Book a service CTA */}
-      {cars.length > 0 && (
-        <div className="mt-6 p-4 bg-bg-card border border-bg-border rounded-xl flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-text-primary">Ready to book a service?</p>
-            <p className="text-xs text-text-secondary mt-0.5">
-              Select a vehicle, service type, and pick your preferred time slot.
-            </p>
-          </div>
-          <Link
-            to="/account/service-bookings/new"
-            className="px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
-          >
-            Book a Service
-          </Link>
-        </div>
-      )}
-
       {/* Add / Edit Modal */}
       {showModal && (
-        <div
+        <ModalOverlay onDismiss={() => setShowModal(false)} aria-label={editingCar ? "Edit vehicle" : "Add vehicle"}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
         >
@@ -275,8 +265,8 @@ export default function GaragePage() {
               <div className="p-6 space-y-4">
                 {/* Make */}
                 <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Make *</label>
-                  <input
+                  <label htmlFor="garagepage-make" className="block text-sm font-medium text-text-secondary mb-1">Make *</label>
+                  <input id="garagepage-make"
                     type="text"
                     value={form.make}
                     onChange={(e) => setForm(f => ({ ...f, make: e.target.value }))}
@@ -288,8 +278,8 @@ export default function GaragePage() {
 
                 {/* Model */}
                 <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Model *</label>
-                  <input
+                  <label htmlFor="garagepage-model" className="block text-sm font-medium text-text-secondary mb-1">Model *</label>
+                  <input id="garagepage-model"
                     type="text"
                     value={form.model}
                     onChange={(e) => setForm(f => ({ ...f, model: e.target.value }))}
@@ -301,8 +291,8 @@ export default function GaragePage() {
 
                 {/* Year */}
                 <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Year *</label>
-                  <input
+                  <label htmlFor="garagepage-year" className="block text-sm font-medium text-text-secondary mb-1">Year *</label>
+                  <input id="garagepage-year"
                     type="number"
                     value={form.year}
                     onChange={(e) => setForm(f => ({ ...f, year: e.target.value }))}
@@ -316,8 +306,8 @@ export default function GaragePage() {
 
                 {/* Color */}
                 <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Color</label>
-                  <input
+                  <label htmlFor="garagepage-color" className="block text-sm font-medium text-text-secondary mb-1">Color</label>
+                  <input id="garagepage-color"
                     type="text"
                     value={form.color}
                     onChange={(e) => setForm(f => ({ ...f, color: e.target.value }))}
@@ -328,8 +318,8 @@ export default function GaragePage() {
 
                 {/* Plate Number */}
                 <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Plate Number</label>
-                  <input
+                  <label htmlFor="garagepage-plate-number" className="block text-sm font-medium text-text-secondary mb-1">Plate Number</label>
+                  <input id="garagepage-plate-number"
                     type="text"
                     value={form.plate_number}
                     onChange={(e) => setForm(f => ({ ...f, plate_number: e.target.value }))}
@@ -340,9 +330,10 @@ export default function GaragePage() {
 
                 {/* VIN */}
                 <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1">VIN Number</label>
-                  <input
+                  <label htmlFor="garagepage-vin-number" className="block text-sm font-medium text-text-secondary mb-1">VIN Number</label>
+                  <input id="garagepage-vin-number"
                     type="text"
+                    readOnly={Boolean(editingCar?.source_sale_id && editingCar.vin_number)}
                     value={form.vin_number}
                     onChange={(e) => setForm(f => ({ ...f, vin_number: e.target.value }))}
                     className="w-full px-3 py-2 bg-bg-elevated border border-bg-border rounded-lg text-text-primary text-sm focus:outline-none focus:border-accent-blue placeholder:text-text-muted"
@@ -375,7 +366,7 @@ export default function GaragePage() {
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* Delete confirmation */}

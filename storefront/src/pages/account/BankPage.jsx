@@ -1,9 +1,11 @@
+import ModalOverlay from '../../components/common/ModalOverlay';
 /**
  * BankPage — full implementation per spec 8.1-8.2.
  * Bank card visual, statement table (date, ref, description, debit red/credit green,
  * balance_after), filter by type, pagination, top-up modal.
  */
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import * as storeApi from '../../api/storeApi';
 import BankCard from '../../components/payment/BankCard';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -21,6 +23,14 @@ const TXN_TYPE_FILTERS = [
 
 const PAGE_SIZE = 15;
 
+function StatementDescription({ txn }) {
+  const path = txn.sale_id ? `/account/purchases#sale-${txn.sale_id}`
+    : txn.reservation_id ? `/account/receipts/reservation/${txn.reservation_id}`
+    : txn.service_booking_id ? `/account/receipts/service/${txn.service_booking_id}` : null;
+  return <>{path ? <Link className="text-accent-blue underline" to={path}>{txn.description}</Link> : txn.description}
+    {txn.deal_id && <Link className="ml-2 underline" to={`/account/deals/${txn.deal_id}`}>Deal #{txn.deal_id}</Link>}</>;
+}
+
 export default function BankPage() {
   const { customer } = useAuth();
 
@@ -28,8 +38,6 @@ export default function BankPage() {
   const [bankSummary, setBankSummary] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(true);
 
-  // Sensitive data (full account number, demo CVV)
-  const [sensitiveData, setSensitiveData] = useState(null);
 
   // Transactions
   const [transactions, setTransactions] = useState([]);
@@ -54,7 +62,6 @@ export default function BankPage() {
       setLoadingSummary(true);
       const res = await storeApi.getBankSummary();
       setBankSummary(res.data);
-      storeApi.getSensitiveBankDetails().then(r => setSensitiveData(r.data)).catch(() => {});
     } catch (err) {
       setError('Failed to load bank account.');
     } finally {
@@ -178,8 +185,6 @@ export default function BankPage() {
           cardLast4={bankSummary.card_last4}
           customerName={customer?.full_name || bankSummary.customer_name || 'Account Holder'}
           balance={parseFloat(bankSummary.balance)}
-          accountNumber={sensitiveData?.account_number}
-          demoCvv={sensitiveData?.demo_cvv}
           className="mb-8 max-w-md"
         />
       )}
@@ -198,7 +203,7 @@ export default function BankPage() {
         <div className="flex items-center justify-between p-4 border-b border-bg-border">
           <h2 className="text-lg font-semibold text-text-primary">Statement</h2>
           <div className="flex items-center gap-2">
-            <select
+            <select aria-label="Filter wallet transactions"
               value={txnFilter}
               onChange={(e) => setTxnFilter(e.target.value)}
               className="px-3 py-1.5 bg-bg-elevated border border-bg-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue"
@@ -236,7 +241,7 @@ export default function BankPage() {
                 </thead>
                 <tbody className="divide-y divide-bg-border">
                   {transactions.map((txn, idx) => {
-                    const isDebit = txn.txn_type === 'Debit';
+                    const isDebit = txn.direction === 'Debit';
                     return (
                       <tr key={txn.transaction_id || idx} className="hover:bg-bg-elevated/50 transition-colors">
                         <td className="px-4 py-3 text-text-secondary whitespace-nowrap">
@@ -246,7 +251,7 @@ export default function BankPage() {
                           {txn.reference_code}
                         </td>
                         <td className="px-4 py-3 text-text-primary">
-                          {txn.description}
+                          <StatementDescription txn={txn} />
                         </td>
                         <td className="px-4 py-3 text-right whitespace-nowrap">
                           {isDebit ? (
@@ -279,11 +284,11 @@ export default function BankPage() {
             {/* Mobile cards */}
             <div className="md:hidden divide-y divide-bg-border">
               {transactions.map((txn, idx) => {
-                const isDebit = txn.txn_type === 'Debit';
+                const isDebit = txn.direction === 'Debit';
                 return (
                   <div key={txn.transaction_id || idx} className="p-4">
                     <div className="flex items-start justify-between mb-1">
-                      <p className="text-sm text-text-primary font-medium">{txn.description}</p>
+                      <p className="text-sm text-text-primary font-medium"><StatementDescription txn={txn} /></p>
                       <span className={`text-sm font-semibold ${isDebit ? 'text-status-cancelled' : 'text-status-available'}`}>
                         {isDebit ? '-' : '+'}{formatPrice(txn.amount)}
                       </span>
@@ -331,13 +336,11 @@ export default function BankPage() {
 
       {/* ── Top-up Modal ──────────────────────────────────────── */}
       {showTopUp && (
-        <div
+        <ModalOverlay onDismiss={topUpLoading ? undefined : () => setShowTopUp(false)} aria-label="Top up wallet"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowTopUp(false);
           }}
-          role="dialog"
-          aria-modal="true"
         >
           <div className="bg-bg-card border border-bg-border rounded-2xl shadow-2xl max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-6">
@@ -439,7 +442,7 @@ export default function BankPage() {
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
   );

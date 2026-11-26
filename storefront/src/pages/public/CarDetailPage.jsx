@@ -170,7 +170,7 @@ export default function CarDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left column — Gallery + Description */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="min-w-0 lg:col-span-2 space-y-6">
           {/* Gallery — prepend main_image_url as first image (Decision #23) */}
           <ImageGallery
             images={(() => {
@@ -298,6 +298,7 @@ export default function CarDetailPage() {
 
             {/* Action buttons */}
             <div className="space-y-3">
+              {!isOutOfStock && <Link to={`/account/checkout/${id}`} className="block w-full rounded-xl bg-[#285bcf] px-4 py-3 text-center font-semibold text-white">Buy now</Link>}
               {isOutOfStock ? (
                 <>
                   <button
@@ -326,7 +327,7 @@ export default function CarDetailPage() {
                     className={`w-full py-3 font-semibold rounded-xl transition-colors ${
                       restockRequested
                         ? 'bg-status-available/20 text-status-available cursor-default'
-                        : 'bg-accent-blue hover:bg-accent-blue-hover text-white'
+                        : 'bg-[#285bcf] hover:bg-[#214ba9] text-white'
                     } disabled:opacity-70`}
                   >
                     {restockLoading
@@ -361,7 +362,7 @@ export default function CarDetailPage() {
                       }
                       setShowCheckout(true);
                     }}
-                    className="w-full py-3 bg-accent-blue hover:bg-accent-blue-hover text-white font-semibold rounded-xl transition-colors shadow-lg shadow-accent-blue/20"
+                    className="w-full py-3 bg-[#285bcf] hover:bg-[#214ba9] text-white font-semibold rounded-xl transition-colors shadow-lg shadow-accent-blue/20"
                   >
                     Reserve this car
                   </button>

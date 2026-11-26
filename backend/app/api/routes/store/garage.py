@@ -15,8 +15,10 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_customer
 from app.models.customer_account import CustomerAccount
+from app.models.deal import Deal
 from app.models.customer_vehicle import CustomerVehicle
 from app.models.service_booking import ServiceBooking
+from app.services.service_booking_service import in_showroom_custody
 
 
 router = APIRouter(prefix="/store/garage", tags=["store-garage"])
@@ -54,8 +56,11 @@ class GarageCarResponse(BaseModel):
     plate_number: Optional[str] = None
     vin_number: Optional[str] = None
     source_sale_id: Optional[int] = None
+    deal_id: int | None = None
     created_at: datetime
     has_active_booking: bool = False
+    has_history: bool = False
+    traded_in: bool = False
 
 
 # ── Routes ───────────────────────────────────────────────────────────
@@ -81,7 +86,11 @@ async def list_garage(
             ServiceBooking.status.in_(["Booked", "Confirmed", "In Progress"]),
         ).first()
         car = GarageCarResponse.model_validate(v)
+        if v.source_sale_id:
+            car.deal_id = db.query(Deal.deal_id).filter_by(sale_id=v.source_sale_id, customer_id=account.customer_id).scalar()
         car.has_active_booking = active is not None
+        car.has_history = bool(v.source_sale_id or v.service_bookings or v.service_jobs)
+        car.traded_in = in_showroom_custody(db, v)
         result.append(car)
 
     return result
@@ -129,6 +138,12 @@ async def update_garage_car(
         raise HTTPException(status_code=404, detail="Vehicle not found in your garage")
 
     update_data = data.model_dump(exclude_unset=True)
+    if in_showroom_custody(db, car):
+        raise HTTPException(409, "This vehicle has been traded in")
+    if car.source_sale_id and car.vin_number and "vin_number" in update_data:
+        if (update_data["vin_number"] or "").strip().upper() != car.vin_number.upper():
+            raise HTTPException(409, "The VIN recorded at handover cannot be changed")
+        update_data.pop("vin_number")
     for field, value in update_data.items():
         if isinstance(value, str):
             value = value.strip()
@@ -177,6 +192,8 @@ async def delete_garage_car(
                    "Cancel the booking first.",
         )
 
+    if car.source_sale_id or car.service_bookings or car.service_jobs or in_showroom_custody(db, car):
+        raise HTTPException(409, "This vehicle has a purchase, trade-in or service history")
     db.delete(car)
     db.commit()
     return {"detail": "Vehicle removed from garage"}

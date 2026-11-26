@@ -81,10 +81,10 @@ export default function Receipt({
           </div>
         )}
 
-        {!isReservation && receiptData.service_type && (
+        {!isReservation && receiptData.service_type_name && (
           <div className="pb-4 border-b border-bg-border">
             <h3 className="text-sm font-semibold text-text-primary">
-              {receiptData.service_type}
+              {receiptData.service_type_name}
             </h3>
             {receiptData.vehicle_label && (
               <p className="text-xs text-text-secondary mt-0.5">
@@ -113,10 +113,10 @@ export default function Receipt({
             <p className="text-text-primary font-semibold text-accent-blue">{formatPrice(receiptData.deposit_amount || receiptData.fee_amount || 0)}</p>
           </div>
 
-          {receiptData.balance_after != null && (
+          {(receiptData.balance_after ?? receiptData.balance_after_charge) != null && (
             <div>
               <p className="text-text-muted text-xs">Balance After</p>
-              <p className="text-text-primary">{formatPrice(receiptData.balance_after)}</p>
+              <p className="text-text-primary">{formatPrice(receiptData.balance_after ?? receiptData.balance_after_charge)}</p>
             </div>
           )}
 
@@ -152,7 +152,7 @@ export default function Receipt({
 
           <div>
             <p className="text-text-muted text-xs">Date</p>
-            <p className="text-text-primary">{formatDateTime(receiptData.created_at)}</p>
+            <p className="text-text-primary">{isReservation ? formatDateTime(receiptData.created_at) : `${formatDate(receiptData.booking_date)} · ${receiptData.time_slot}`}</p>
           </div>
 
           <div>
@@ -161,6 +161,14 @@ export default function Receipt({
           </div>
         </div>
 
+        {!isReservation && <div className="space-y-2 border-t border-bg-border pt-4 text-sm">
+          {receiptData.technician_name && <p>Technician · {receiptData.technician_name}</p>}
+          {receiptData.estimated_cost != null && <p>Workshop estimate · {formatPrice(receiptData.estimated_cost)}</p>}
+          {receiptData.final_cost != null && <p>Final workshop cost · {formatPrice(receiptData.final_cost)}</p>}
+          {receiptData.parts?.length > 0 && <div><h3 className="font-semibold">Parts used</h3>
+            <ul>{receiptData.parts.map(p => <li key={p.part_id}>{p.quantity} × {p.part_name} · {formatPrice(p.total_cost)}</li>)}</ul></div>}
+          {receiptData.status === 'Cancelled' && <p>Wallet refund · {formatPrice(receiptData.refund_amount || 0)} {receiptData.refund_reference}</p>}
+        </div>}
         {/* Cancellation policy */}
         {isReservation && receiptData.status === 'Active' && (
           <div className="mt-4 p-3 bg-bg-elevated rounded-lg">

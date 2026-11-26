@@ -1,3 +1,4 @@
+import ModalOverlay from '../../components/common/ModalOverlay';
 import BackButton from "../../components/common/BackButton";
 /**
  * TradeInsPage — staff page for managing customer trade-in requests.
@@ -5,13 +6,17 @@ import BackButton from "../../components/common/BackButton";
  * Spec 7.7, 10.4.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { getTradeIns, updateTradeIn } from '../../api/tradeInsApi';
+import { getTradeIn, getTradeIns, updateTradeIn } from '../../api/tradeInsApi';
+import { useSearchParams } from 'react-router-dom';
 import { RefreshCw, Filter, AlertTriangle, ArrowRightLeft, Eye, DollarSign, CheckCircle } from 'lucide-react';
 import ImageLightbox from '../../components/common/ImageLightbox';
+import AcquisitionPanel from './AcquisitionPanel';
 
 const STATUS_OPTIONS = ['', 'Submitted', 'Under Review', 'Offer Made', 'Accepted', 'Declined', 'Expired', 'Completed', 'Cancelled'];
 
 export default function TradeInsPage() {
+  const [params] = useSearchParams();
+  const openId = params.get("id");
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -52,6 +57,13 @@ export default function TradeInsPage() {
   }, [page, statusFilter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    if (!openId) return;
+    let active = true;
+    getTradeIn(openId).then(res => { if (active) setDetailTarget(res.data); })
+      .catch(() => { if (active) setError("Could not open this trade-in."); });
+    return () => { active = false; };
+  }, [openId]);
 
   const handleSetUnderReview = async (id) => {
     try {
@@ -153,7 +165,7 @@ export default function TradeInsPage() {
       {/* Filters */}
       <div className="flex items-center gap-3 mb-6">
         <Filter className="w-4 h-4 text-text-muted" />
-        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+        <select aria-label="Filter trade-ins by status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
           className="px-3 py-1.5 bg-bg-elevated border border-bg-border rounded-lg text-sm text-text-primary focus:outline-none focus:border-accent-blue">
           <option value="">All statuses</option>
           {STATUS_OPTIONS.filter(Boolean).map((s) => <option key={s} value={s}>{s}</option>)}
@@ -250,11 +262,12 @@ export default function TradeInsPage() {
 
       {/* Detail modal */}
       {detailTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <ModalOverlay onDismiss={() => setDetailTarget(null)} aria-label="Trade-in details" className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDetailTarget(null)} />
-          <div role="dialog" aria-modal="true" aria-label="Trade-in details" className="relative bg-bg-card border border-bg-border rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6">
+          <div  className="relative bg-bg-card border border-bg-border rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6">
             <BackButton onClick={() => setDetailTarget(null)} className="mb-3" />
             <div className="mb-2 text-sm text-text-secondary">Status: {detailTarget.status}</div>
+            <AcquisitionPanel trade={detailTarget} refresh={async row => { setDetailTarget(row); await fetchData(); }} />
             <h3 className="text-lg font-bold text-text-primary mb-1">{detailTarget.year} {detailTarget.make} {detailTarget.model}</h3>
             <p className="text-sm text-text-secondary mb-4">{detailTarget.mileage_km?.toLocaleString()} km • {detailTarget.condition_rating}{detailTarget.color ? ` • ${detailTarget.color}` : ''}</p>
 
@@ -313,12 +326,12 @@ export default function TradeInsPage() {
 
             <button onClick={() => setDetailTarget(null)} className="w-full px-4 py-2.5 bg-bg-elevated border border-bg-border rounded-xl text-sm text-text-secondary hover:text-text-primary transition-colors">Close</button>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* Offer modal */}
       {offerTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <ModalOverlay onDismiss={() => setOfferTarget(null)} aria-label="Make offer" className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOfferTarget(null)} />
           <div className="relative bg-bg-card border border-bg-border rounded-2xl shadow-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-bold text-text-primary mb-1">Make Offer</h3>
@@ -329,14 +342,14 @@ export default function TradeInsPage() {
             )}
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-text-secondary mb-1.5">Offered Value (\$)</label>
-              <input type="number" min="0" step="0.01" value={offeredValue} onChange={(e) => setOfferedValue(e.target.value)}
+              <label htmlFor="tradeinspage-offered-value" className="block text-sm font-medium text-text-secondary mb-1.5">Offered Value (\$)</label>
+              <input id="tradeinspage-offered-value" type="number" min="0" step="0.01" value={offeredValue} onChange={(e) => setOfferedValue(e.target.value)}
                 className="w-full px-4 py-2.5 bg-bg-primary border border-bg-border rounded-xl text-text-primary text-sm focus:outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue transition-colors" autoFocus />
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-text-secondary mb-1.5">Staff Notes (optional)</label>
-              <textarea value={staffNotes} onChange={(e) => setStaffNotes(e.target.value)} rows={3}
+              <label htmlFor="tradeinspage-staff-notes-optional" className="block text-sm font-medium text-text-secondary mb-1.5">Staff Notes (optional)</label>
+              <textarea id="tradeinspage-staff-notes-optional" value={staffNotes} onChange={(e) => setStaffNotes(e.target.value)} rows={3}
                 className="w-full px-4 py-2.5 bg-bg-primary border border-bg-border rounded-xl text-text-primary text-sm focus:outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue transition-colors resize-none"
                 placeholder="Notes visible to customer..." />
             </div>
@@ -355,7 +368,7 @@ export default function TradeInsPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
       {/* Image lightbox */}
       {lightboxOpen && detailTarget?.images?.length > 0 && (

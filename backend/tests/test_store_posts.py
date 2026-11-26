@@ -10,8 +10,6 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-# In-memory SQLite for tests
-os.environ["DATABASE_URL"] = "sqlite:///./test_store_posts.db"
 os.environ["SECRET_KEY"] = "test-secret-key-for-store-posts"
 os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"
@@ -21,7 +19,6 @@ from app.main import app  # noqa: E402
 from app.db.session import engine  # noqa: E402
 from app.db.base import Base  # noqa: E402
 
-Base.metadata.create_all(bind=engine)
 client = TestClient(app)
 
 
@@ -123,7 +120,7 @@ class TestPostsWithToken:
 
     def test_wishlist_toggle(self):
         """POST /store/wishlist/{id} requires a valid vehicle.
-        Since we're using SQLite, there may be no vehicle — test 404 is acceptable."""
+        A missing vehicle returns 404."""
         resp = client.post("/api/v1/store/wishlist/9999",
                            headers=_auth_header(self.token))
         # 201 (created) or 404 (vehicle not found) — both acceptable, never 307/401

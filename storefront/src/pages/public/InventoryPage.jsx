@@ -2,10 +2,11 @@
  * InventoryPage — full vehicle catalog with filters, sort, pagination, compare.
  * Spec 10.1, 11.2, 11.4.
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { getVehicles, getVehicleFilters } from '../../api/publicApi';
-import { requestRestock } from '../../api/storeApi';
+import { requestRestock, getWishlist, addToWishlist, removeFromWishlist } from '../../api/storeApi';
+import { useQuery } from '@tanstack/react-query';
 import CarGrid from '../../components/cars/CarGrid';
 import FilterBar from '../../components/cars/FilterBar';
 import CompareBar from '../../components/cars/CompareBar';
@@ -17,10 +18,14 @@ export default function InventoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { compareIds, toggle: toggleCompare } = useCompare();
-  const { loggedIn } = useAuth();
+  const { loggedIn, customer } = useAuth();
+  const wishlist = useQuery({ queryKey: ['catalog-wishlist', customer?.customer_id], enabled: loggedIn,
+    queryFn: async () => (await getWishlist()).data.map(item => item.vehicle_id) });
+  const [actionError, setActionError] = useState('');
+  const [retry, setRetry] = useState(0);
 
   // Initialize filters from URL params
-  const [filters, setFilters] = useState(() => ({
+  const filters = useMemo(() => ({
     q: searchParams.get('q') || '',
     make: searchParams.get('make') || '',
     body_type: searchParams.get('body_type') || '',
@@ -32,8 +37,8 @@ export default function InventoryPage() {
     price_max: searchParams.get('price_max') || '',
     in_stock_only: searchParams.get('in_stock_only') === 'true',
     sort: searchParams.get('sort') || 'newest',
-    page: parseInt(searchParams.get('page') || '1', 10),
-  }));
+    page: Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1),
+  }), [searchParams]);
 
   const [filterOptions, setFilterOptions] = useState(null);
   const [vehicles, setVehicles] = useState([]);
@@ -47,14 +52,15 @@ export default function InventoryPage() {
   const debouncedQ = useDebounce(filters.q, 400);
 
   // Sync filters to URL
-  useEffect(() => {
+  const setFilters = useCallback((update) => {
+    const next = typeof update === 'function' ? update(filters) : update;
     const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, val]) => {
+    Object.entries(next).forEach(([key, val]) => {
       if (val !== '' && val !== false && val !== 0 && key !== 'page') {
         params.set(key, String(val));
       }
     });
-    if (filters.page > 1) params.set('page', String(filters.page));
+    if (next.page > 1) params.set('page', String(next.page));
     setSearchParams(params, { replace: true });
   }, [filters, setSearchParams]);
 
@@ -67,6 +73,7 @@ export default function InventoryPage() {
 
   // Fetch vehicles
   useEffect(() => {
+    let active = true;
     const fetchVehicles = async () => {
       try {
         setLoading(true);
@@ -87,24 +94,51 @@ export default function InventoryPage() {
         params.page_size = pageSize;
 
         const res = await getVehicles(params);
+        if (!active) return;
         setVehicles(res.data.items);
         setTotal(res.data.total);
       } catch (err) {
-        setError('Failed to load vehicles. Please try again.');
+        if (active) setError('Failed to load vehicles. Please try again.');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     fetchVehicles();
+    return () => { active = false; };
   }, [debouncedQ, filters.make, filters.body_type, filters.fuel_type, filters.condition_type,
       filters.year_min, filters.year_max, filters.price_min, filters.price_max,
-      filters.in_stock_only, filters.sort, filters.page]);
+      filters.in_stock_only, filters.sort, filters.page, retry]);
+
+  useEffect(() => {
+    if (loading || error) return;
+    const key = 'catalog-scroll:' + location.search;
+    const saved = sessionStorage.getItem(key);
+    if (saved !== null) {
+      window.scrollTo(0, Number(saved));
+      sessionStorage.removeItem(key);
+    }
+  }, [loading, error]);
+
+  function resumeCatalog() {
+    sessionStorage.setItem('catalog-scroll:' + location.search, String(window.scrollY));
+    return '/login?next=' + encodeURIComponent(location.pathname + location.search);
+  }
+
+  async function toggleWishlist(id) {
+    if (!loggedIn) return navigate(resumeCatalog());
+    setActionError('');
+    try {
+      if (wishlist.data?.includes(id)) await removeFromWishlist(id);
+      else await addToWishlist(id);
+      await wishlist.refetch();
+    } catch { setActionError('Your wishlist could not be updated. Try again.'); }
+  }
 
   const totalPages = Math.ceil(total / pageSize);
 
   const handleRequestRestock = useCallback(async (vehicleId) => {
     if (!loggedIn) {
-      navigate('/login?next=' + encodeURIComponent(`/cars/${vehicleId}`));
+      navigate(resumeCatalog());
       return;
     }
     try {
@@ -113,16 +147,18 @@ export default function InventoryPage() {
     } catch (err) {
       if (err.response?.status === 409) {
         setRestockRequestedIds((prev) => [...prev, vehicleId]);
-      }
+      } else setActionError('The restock request could not be saved. Try again.');
     }
   }, [loggedIn, navigate]);
 
   const handleFiltersChange = useCallback((newFilters) => {
     setFilters(newFilters);
-  }, []);
+  }, [setFilters]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" onClickCapture={e => {
+      if (e.target.closest('a[href]')) sessionStorage.setItem('catalog-scroll:' + location.search, String(window.scrollY));
+    }}>
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-text-primary mb-1">Our Cars</h1>
@@ -142,20 +178,23 @@ export default function InventoryPage() {
       {/* Error state */}
       {error && (
         <div className="bg-status-cancelled/10 border border-status-cancelled/20 rounded-xl p-4 mb-6">
-          <p className="text-sm text-status-cancelled">{error}</p>
+          <p role="alert" className="text-sm text-status-cancelled">{error} <button onClick={() => setRetry(n => n+1)} className="underline">Retry</button></p>
         </div>
       )}
 
       {/* Car grid */}
-      <CarGrid
+      {actionError && <p role="alert">{actionError}</p>}
+      {!error && <CarGrid
         vehicles={vehicles}
+        wishlistedIds={wishlist.data || []}
+        onToggleWishlist={toggleWishlist}
         isLoading={loading}
         compareIds={compareIds}
         onToggleCompare={toggleCompare}
         restockRequestedIds={restockRequestedIds}
         onRequestRestock={handleRequestRestock}
         loggedIn={loggedIn}
-      />
+      />}
 
       {/* Pagination */}
       {totalPages > 1 && (

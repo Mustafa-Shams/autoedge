@@ -15,6 +15,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.api.deps import get_db, require_role
 from app.core.config import settings
 from app.core.time import utcnow
+from sqlalchemy.exc import IntegrityError
+from app.services.trade_acquisition import AcquisitionPayment, ScheduleInspection, InspectionTerms, Intake, Publish, apply_staff_action, draft_details
 from app.models.trade_in_request import TradeInRequest, TradeInImage
 from app.models.customer import Customer
 from app.models.vehicle import Vehicle
@@ -58,7 +60,9 @@ def _to_staff_response(t: TradeInRequest, customer: Customer = None) -> dict:
     if t.target_vehicle:
         target_label = f"{t.target_vehicle.year} {t.target_vehicle.make} {t.target_vehicle.model}"
     return {
+        "acquisition": draft_details(t, staff=True),
         "trade_in_id": t.trade_in_id,
+        "deal_id": t.deal_id,
         "customer_id": t.customer_id,
         "customer_name": customer.full_name if customer else None,
         "customer_email": customer.email if customer else None,
@@ -147,6 +151,28 @@ async def get_trade_in_detail(
     return _to_staff_response(trade_in, customer)
 
 
+@router.post("/trade-ins/{trade_in_id}/acquisition")
+def process_acquisition(trade_in_id: int, body: ScheduleInspection | InspectionTerms | Intake | Publish | AcquisitionPayment,
+                        user=Depends(MANAGER_SALES), db: Session = Depends(get_db)):
+    trade = db.query(TradeInRequest).filter_by(trade_in_id=trade_in_id).with_for_update().one_or_none()
+    if not trade:
+        raise HTTPException(404, "Trade-in not found")
+    if isinstance(body, Publish) and user.access.get("vehicles") != "full":
+        raise HTTPException(403, "Publishing requires inventory editing access")
+    if isinstance(body, AcquisitionPayment) and user.role != "manager":
+        raise HTTPException(403, "Manager approval required")
+    try:
+        apply_staff_action(db, trade, user, body)
+        db.commit()
+        return _to_staff_response(trade, trade.customer)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(409, str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "This VIN or acquisition already belongs to another stock unit") from exc
+
+
 @router.put("/trade-ins/{trade_in_id}")
 async def update_trade_in(
     trade_in_id: int,
@@ -157,12 +183,12 @@ async def update_trade_in(
     """Update trade-in: set Under Review, or make Offer (sets offered_value + offer_valid_until)."""
     trade_in = (
         db.query(TradeInRequest)
-        .options(joinedload(TradeInRequest.images), joinedload(TradeInRequest.target_vehicle))
-        .filter(TradeInRequest.trade_in_id == trade_in_id)
-        .first()
+        .filter(TradeInRequest.trade_in_id == trade_in_id).with_for_update().first()
     )
     if not trade_in:
         raise HTTPException(status_code=404, detail="Trade-in request not found.")
+    if body.status and trade_in.status not in {"Submitted", "Under Review", "Offer Made"}:
+        raise HTTPException(409, "This offer has already been resolved")
 
     now = utcnow()
 

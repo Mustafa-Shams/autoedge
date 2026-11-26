@@ -1,22 +1,10 @@
-/**
- * CheckoutModal — reservation checkout per spec 8.3-8.4.
- * Order summary, hold period selector (7/14/21/30 days), car details,
- * deposit calculation (10%), "Pay from AutoEdge Demo Bank" with masked card,
- * password confirm field, "Demo project — no real money" note,
- * Pay button with idempotency_key UUID generated on modal open.
- * 
- * Processing sequence: after clicking Pay show ProcessingSteps
- * (cosmetic, backend call runs at the same time). Disable button
- * and send a fresh idempotency_key.
- * 
- * Failure states: insufficient funds (402), incorrect password (401),
- * out of stock (409).
- */
-import { useState, useEffect, useRef, useMemo } from 'react';
+import ModalOverlay from '../common/ModalOverlay';
+import { useQuery } from '@tanstack/react-query';
+import useAuth from '../../hooks/useAuth';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as storeApi from '../../api/storeApi';
 import BankCard from './BankCard';
-import ProcessingSteps from './ProcessingSteps';
 import PasswordField from '../forms/PasswordField';
 import { formatPrice } from '../../utils/formatters';
 
@@ -27,7 +15,7 @@ const HOLD_OPTIONS = [
   { days: 30, label: '30 days' },
 ];
 
-const DEPOSIT_PERCENT = 10; // spec: 10% of vehicle price
+
 
 function generateIdempotencyKey() {
   // Generate a UUID v4
@@ -45,7 +33,6 @@ export default function CheckoutModal({
   onSuccess,
 }) {
   const navigate = useNavigate();
-  const overlayRef = useRef(null);
 
   // State
   const [holdDays, setHoldDays] = useState(14);
@@ -54,7 +41,13 @@ export default function CheckoutModal({
   const [phase, setPhase] = useState('form'); // 'form' | 'processing' | 'success' | 'error'
   const [bankSummary, setBankSummary] = useState(null);
   const [loadingBank, setLoadingBank] = useState(true);
-  const [reservationResult, setReservationResult] = useState(null);
+  const { customer } = useAuth();
+  const quote = useQuery({
+    queryKey: ['hold-terms', customer?.customer_id, vehicle?.vehicle_id, holdDays, isOpen],
+    enabled: Boolean(isOpen && vehicle),
+    queryFn: async () => (await storeApi.getHoldQuote(vehicle.vehicle_id, holdDays)).data,
+    refetchOnWindowFocus: false,
+  });
   const [submitting, setSubmitting] = useState(false);
 
   // Generate a fresh idempotency key when modal opens (spec: UUID created on modal open)
@@ -69,7 +62,6 @@ export default function CheckoutModal({
     setPhase('form');
     setPassword('');
     setError('');
-    setReservationResult(null);
     setSubmitting(false);
     setLoadingBank(true);
 
@@ -79,25 +71,18 @@ export default function CheckoutModal({
       .finally(() => setLoadingBank(false));
   }, [isOpen]);
 
-  // Close on Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleEsc = (e) => {
-      if (e.key === 'Escape' && phase === 'form') onClose();
-    };
-    document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
-  }, [isOpen, phase, onClose]);
+
 
   if (!isOpen || !vehicle) return null;
 
-  const price = parseFloat(vehicle.price);
-  const deposit = Math.round(price * DEPOSIT_PERCENT) / 100;
+  const terms = quote.data;
+  const price = Number(terms?.price ?? vehicle.price);
+  const deposit = Number(terms?.deposit ?? 0);
   const balanceDueAtShowroom = price - deposit;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (submitting || phase !== 'form') return;
+    if (submitting || !terms || quote.isFetching || phase !== 'form') return;
 
     if (!password.trim()) {
       setError('Please enter your account password to confirm.');
@@ -112,12 +97,14 @@ export default function CheckoutModal({
       const res = await storeApi.createReservation({
         vehicle_id: vehicle.vehicle_id,
         hold_days: holdDays,
-        password: password.trim(),
+        password,
+        quote_token: terms.token,
         idempotency_key: idempotencyKey,
       });
 
-      setReservationResult(res.data);
-      // ProcessingSteps will call onProcessingComplete when animation finishes
+      onSuccess?.();
+      onClose();
+      navigate(`/account/deals/${res.data.deal_id}`);
     } catch (err) {
       const status = err.response?.status;
       const detail = err.response?.data?.detail || '';
@@ -127,6 +114,7 @@ export default function CheckoutModal({
       } else if (status === 402) {
         setError(detail || 'Payment declined — insufficient funds.');
       } else if (status === 409) {
+        quote.refetch();
         setError(detail || 'This car was just reserved or sold out.');
       } else if (status === 422) {
         const msg = err.response?.data?.detail;
@@ -144,32 +132,12 @@ export default function CheckoutModal({
     }
   };
 
-  const handleProcessingComplete = () => {
-    setPhase('success');
-  };
-
-  const handleGoToReceipt = () => {
-    if (reservationResult) {
-      navigate(`/account/receipts/reservation/${reservationResult.reservation_id}`);
-    }
-    onClose();
-  };
-
-  const handleGoToReservations = () => {
-    navigate('/account/reservations');
-    onClose();
-  };
-
   return (
-    <div
-      ref={overlayRef}
+    <ModalOverlay onDismiss={phase === 'processing' ? undefined : onClose} aria-label="Reservation checkout"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto"
       onClick={(e) => {
-        if (e.target === overlayRef.current && phase === 'form') onClose();
+        if (e.target === e.currentTarget && phase === 'form') onClose();
       }}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="checkout-modal-title"
     >
       <div className="bg-bg-card border border-bg-border rounded-2xl shadow-2xl max-w-lg w-full my-4">
         {/* ── FORM PHASE ────────────────────────────────────────── */}
@@ -247,22 +215,26 @@ export default function CheckoutModal({
                 </div>
               </div>
 
-              {/* Order summary */}
+              {quote.isError && <p role="alert">Could not load hold terms. <button type="button" className="underline" onClick={() => quote.refetch()}>Retry</button></p>}
+              {quote.isFetching && <p role="status">Loading hold terms…</p>}
+              {terms && <>
               <div className="bg-bg-elevated rounded-xl p-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-text-secondary">Vehicle Price</span>
                   <span className="text-text-primary">{formatPrice(price)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-text-secondary">Deposit ({DEPOSIT_PERCENT}%)</span>
+                  <span className="text-text-secondary">Reservation deposit</span>
                   <span className="text-accent-blue font-semibold">{formatPrice(deposit)}</span>
                 </div>
                 <div className="flex justify-between text-sm pt-2 border-t border-bg-border">
-                  <span className="text-text-secondary">Balance due at showroom</span>
+                  <span className="text-text-secondary">Purchase balance after deposit</span>
                   <span className="text-text-primary font-medium">{formatPrice(balanceDueAtShowroom)}</span>
                 </div>
               </div>
 
+              <p>Hold expires {new Date(terms.expires_at).toLocaleString(undefined, {dateStyle:'full', timeStyle:'long'})}.</p>
+              <p>Cancel this hold before purchase and your demo wallet receives {formatPrice(terms.refund)}. The cancellation fee is {formatPrice(deposit - Number(terms.refund))}.</p></>}
               {/* Payment method — bank card compact */}
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-2">
@@ -370,8 +342,8 @@ export default function CheckoutModal({
               </button>
               <button
                 type="submit"
-                disabled={submitting || loadingBank || !bankSummary}
-                className="flex-1 py-2.5 text-sm font-semibold text-white bg-accent-blue hover:bg-accent-blue-hover rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-accent-blue/20 flex items-center justify-center gap-2"
+                disabled={submitting || loadingBank || !bankSummary || !terms || quote.isFetching || quote.isError}
+                className="flex-1 py-2.5 text-sm font-semibold text-white bg-[#285bcf] hover:bg-[#214ba9] rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-accent-blue/20 flex items-center justify-center gap-2"
               >
                 {submitting ? (
                   <>
@@ -379,104 +351,15 @@ export default function CheckoutModal({
                     Processing…
                   </>
                 ) : (
-                  <>Pay {formatPrice(deposit)}</>
+                  <>{terms ? `Pay ${formatPrice(deposit)}` : "Loading quote…"}</>
                 )}
               </button>
             </div>
           </form>
         )}
 
-        {/* ── PROCESSING PHASE ──────────────────────────────────── */}
-        {phase === 'processing' && (
-          <div className="p-6">
-            <h2 className="text-lg font-bold text-text-primary text-center mb-2">
-              Processing Payment
-            </h2>
-            <p className="text-sm text-text-secondary text-center mb-4">
-              Please wait while we process your reservation…
-            </p>
-            <ProcessingSteps onComplete={handleProcessingComplete} />
-          </div>
-        )}
-
-        {/* ── SUCCESS PHASE ─────────────────────────────────────── */}
-        {phase === 'success' && reservationResult && (
-          <div className="p-6">
-            {/* Success icon */}
-            <div className="flex flex-col items-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-status-available/20 flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 text-status-available" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                </svg>
-              </div>
-              <h2 className="text-lg font-bold text-text-primary">Reservation Confirmed!</h2>
-              <p className="text-sm text-text-secondary mt-1">
-                Your vehicle has been reserved successfully.
-              </p>
-            </div>
-
-            {/* Receipt summary */}
-            <div className="bg-bg-elevated rounded-xl p-4 space-y-3 mb-6">
-              <div className="flex justify-between text-sm">
-                <span className="text-text-secondary">Receipt Number</span>
-                <span className="text-text-primary font-mono">
-                  RSV-{String(reservationResult.reservation_id).padStart(6, '0')}
-                </span>
-              </div>
-              {reservationResult.reference_code && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-text-secondary">Transaction Ref</span>
-                  <span className="text-text-primary font-mono text-xs">{reservationResult.reference_code}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-sm">
-                <span className="text-text-secondary">Amount</span>
-                <span className="text-accent-blue font-semibold">{formatPrice(reservationResult.deposit_amount)}</span>
-              </div>
-              {reservationResult.balance_after != null && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-text-secondary">New Balance</span>
-                  <span className="text-text-primary">{formatPrice(reservationResult.balance_after)}</span>
-                </div>
-              )}
-              {reservationResult.expires_at && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-text-secondary">Hold Until</span>
-                  <span className="text-text-primary">
-                    {new Date(reservationResult.expires_at).toLocaleDateString('en-US', {
-                      year: 'numeric', month: 'short', day: 'numeric',
-                    })}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Demo note */}
-            <p className="text-[11px] text-text-muted text-center mb-6">
-              ⚠️ Demo project — no real money was charged
-            </p>
-
-            {/* Action buttons */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleGoToReceipt}
-                className="flex-1 py-2.5 text-sm font-medium text-text-primary bg-bg-elevated hover:bg-bg-border border border-bg-border rounded-xl transition-colors"
-              >
-                View Receipt
-              </button>
-              <button
-                onClick={() => {
-                  handleGoToReservations();
-                  onSuccess?.();
-                }}
-                className="flex-1 py-2.5 text-sm font-semibold text-white bg-accent-blue hover:bg-accent-blue-hover rounded-xl transition-colors shadow-lg shadow-accent-blue/20"
-              >
-                My Reservations
-              </button>
-            </div>
-          </div>
-        )}
+        {phase === 'processing' && <p className="p-6" role="status">Processing reservation payment…</p>}
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

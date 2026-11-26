@@ -1,14 +1,14 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ServicePartBase(BaseModel):
-    part_name: str
+    part_name: str = Field(min_length=1, max_length=100)
     part_number: Optional[str] = None
-    quantity: int = 1
-    unit_cost: Decimal
+    quantity: int = Field(default=1, gt=0)
+    unit_cost: Decimal = Field(ge=0)
 
 
 class ServicePartCreate(ServicePartBase):
