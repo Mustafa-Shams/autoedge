@@ -24,6 +24,7 @@ import useAuth from '../../hooks/useAuth';
 import useCompare from '../../hooks/useCompare';
 import { formatPrice, formatDate } from '../../utils/formatters';
 import { calculateEmi, EMI_DEFAULTS, TERM_OPTIONS } from '../../utils/emi';
+import { errorMessage } from '../../utils/errors';
 
 export default function CarDetailPage() {
   const { id } = useParams();
@@ -57,6 +58,7 @@ export default function CarDetailPage() {
   // Wishlist state
   const [inWishlist, setInWishlist] = useState(false);
   const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [wishlistError, setWishlistError] = useState('');
 
   // EMI mini-calculator state
   const [emiInputs, setEmiInputs] = useState({
@@ -299,7 +301,7 @@ export default function CarDetailPage() {
 
             {/* Action buttons */}
             <div className="space-y-3">
-              {!isOutOfStock && <Link to={`/account/checkout/${id}`} className="block w-full rounded-xl bg-[#285bcf] px-4 py-3 text-center font-semibold text-white">Buy now</Link>}
+              {!isOutOfStock && <Link to={`/account/checkout/${id}`} className="block w-full rounded-xl bg-accent-blue-strong px-4 py-3 text-center font-semibold text-white">Buy now</Link>}
               {isOutOfStock ? (
                 <>
                   <button
@@ -328,7 +330,7 @@ export default function CarDetailPage() {
                     className={`w-full py-3 font-semibold rounded-xl transition-colors ${
                       restockRequested
                         ? 'bg-status-available/20 text-status-available cursor-default'
-                        : 'bg-[#285bcf] hover:bg-[#214ba9] text-white'
+                        : 'bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white'
                     } disabled:opacity-70`}
                   >
                     {restockLoading
@@ -363,7 +365,7 @@ export default function CarDetailPage() {
                       }
                       setShowCheckout(true);
                     }}
-                    className="w-full py-3 bg-[#285bcf] hover:bg-[#214ba9] text-white font-semibold rounded-xl transition-colors shadow-lg shadow-accent-blue/20"
+                    className="w-full py-3 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white font-semibold rounded-xl transition-colors shadow-lg shadow-accent-blue/20"
                   >
                     Reserve this car
                   </button>
@@ -402,6 +404,7 @@ export default function CarDetailPage() {
                     if (!loggedIn) { navigate('/login?next=' + encodeURIComponent(`/cars/${id}`)); return; }
                     try {
                       setWishlistLoading(true);
+                      setWishlistError('');
                       if (inWishlist) {
                         await removeFromWishlist(vehicle.vehicle_id);
                         setInWishlist(false);
@@ -410,8 +413,7 @@ export default function CarDetailPage() {
                         setInWishlist(true);
                       }
                     } catch (err) {
-                      const detail = err.response?.data?.detail;
-                      if (typeof detail === 'string') alert(detail);
+                      setWishlistError(errorMessage(err, 'Your wishlist could not be updated. Please try again.'));
                     } finally {
                       setWishlistLoading(false);
                     }
@@ -442,6 +444,9 @@ export default function CarDetailPage() {
                   {isSelected(vehicle.vehicle_id) ? 'Comparing' : 'Compare'}
                 </button>
               </div>
+              {wishlistError && (
+                <p role="alert" className="mt-2 text-sm text-status-cancelled">{wishlistError}</p>
+              )}
             </div>
           </div>
 

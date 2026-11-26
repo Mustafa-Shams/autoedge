@@ -135,7 +135,7 @@ function StaffForm({ id, existing }) {
         {error && <p role="alert" className="text-sm text-status-cancelled">{error}</p>}
         <div className="flex justify-end gap-4">
           <Link to={fallback} className="rounded-lg border border-bg-border px-4 py-2 text-sm text-text-secondary">Cancel</Link>
-          <button type="submit" disabled={mutation.isPending} className="rounded-lg bg-accent-blue px-4 py-2 text-sm text-white">
+          <button type="submit" disabled={mutation.isPending} className="rounded-lg bg-accent-blue-strong px-4 py-2 text-sm text-white">
             {mutation.isPending ? "Saving…" : "Save staff account"}
           </button>
         </div>

@@ -264,7 +264,7 @@ export default function ReviewForm({ vehicleId, onReviewSubmitted }) {
         <button
           type="submit"
           disabled={submitting || rating < 1 || body.trim().length < 10}
-          className="px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+          className="px-4 py-2 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
         >
           {submitting ? (
             <>

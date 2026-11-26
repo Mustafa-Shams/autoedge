@@ -13,6 +13,8 @@ import CompareBar from '../../components/cars/CompareBar';
 import useCompare from '../../hooks/useCompare';
 import useDebounce from '../../hooks/useDebounce';
 import useAuth from '../../hooks/useAuth';
+import BackButton from '../../components/common/BackButton';
+import { errorMessage } from '../../utils/errors';
 
 export default function InventoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -131,7 +133,7 @@ export default function InventoryPage() {
       if (wishlist.data?.includes(id)) await removeFromWishlist(id);
       else await addToWishlist(id);
       await wishlist.refetch();
-    } catch { setActionError('Your wishlist could not be updated. Try again.'); }
+    } catch (err) { setActionError(errorMessage(err, 'Your wishlist could not be updated. Try again.')); }
   }
 
   const totalPages = Math.ceil(total / pageSize);
@@ -159,6 +161,7 @@ export default function InventoryPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" onClickCapture={e => {
       if (e.target.closest('a[href]')) sessionStorage.setItem('catalog-scroll:' + location.search, String(window.scrollY));
     }}>
+      <BackButton fallback="/" label="Back" className="mb-4" />
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-text-primary mb-1">Our Cars</h1>
@@ -227,7 +230,7 @@ export default function InventoryPage() {
                   onClick={() => setFilters((f) => ({ ...f, page: pageNum }))}
                   className={`w-9 h-9 text-sm rounded-lg transition-colors ${
                     pageNum === filters.page
-                      ? 'bg-accent-blue text-white'
+                      ? 'bg-accent-blue-strong text-white'
                       : 'bg-bg-elevated border border-bg-border text-text-secondary hover:text-text-primary'
                   }`}
                 >

@@ -178,7 +178,7 @@ export default function BankPage() {
             setTopUpSuccess('');
             setTopUpAmount('');
           }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-accent-blue/20"
+          className="flex items-center gap-2 px-4 py-2.5 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-accent-blue/20"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -451,7 +451,7 @@ export default function BankPage() {
                 <button
                   type="submit"
                   disabled={topUpLoading || !topUpAmount}
-                  className="flex-1 py-2.5 text-sm font-semibold text-white bg-accent-blue hover:bg-accent-blue-hover rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-accent-blue/20 flex items-center justify-center gap-2"
+                  className="flex-1 py-2.5 text-sm font-semibold text-white bg-accent-blue-strong hover:bg-accent-blue-strong-hover rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-accent-blue/20 flex items-center justify-center gap-2"
                 >
                   {topUpLoading ? (
                     <>

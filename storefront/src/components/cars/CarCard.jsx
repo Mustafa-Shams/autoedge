@@ -159,7 +159,7 @@ export default function CarCard({
         </div>
 
         {/* Out-of-stock: Request this car */}
-        {!isOutOfStock && <Link className="mt-3 block rounded-lg bg-[#285bcf] px-3 py-2 text-center text-sm font-semibold text-white" to={`/account/checkout/${vehicle_id}`}>Buy now</Link>}
+        {!isOutOfStock && <Link className="mt-3 block rounded-lg bg-accent-blue-strong px-3 py-2 text-center text-sm font-semibold text-white" to={`/account/checkout/${vehicle_id}`}>Buy now</Link>}
         {isOutOfStock && !onRequestRestock && <Link to={`/cars/${vehicle_id}`} className="mt-3 block text-accent-blue">View restock options</Link>}
         {isOutOfStock && onRequestRestock && (
           <div className="mt-3">

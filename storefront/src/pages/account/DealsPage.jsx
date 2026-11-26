@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import useAuth from '../../hooks/useAuth';
+import BackButton from '../../components/common/BackButton';
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const base = '/account/deals';
@@ -20,13 +21,14 @@ export default function DealsPage() {
   if (query.isPending) return <p role="status">Loading deals…</p>;
   if (query.isError) return <p role="alert">Could not load this deal history. <button className="underline" onClick={() => query.refetch()}>Retry</button></p>;
   const data = query.data;
-  if (!id) return <section className="space-y-4"><h1 className="text-2xl font-bold">Deals</h1>
+  if (!id) return <section className="space-y-4"><BackButton fallback="/account" label="Back to Account" /><h1 className="text-2xl font-bold">Deals</h1>
     {!data.items.length && <p>No vehicle deals on this page.</p>}
     {data.items.map(d => <Link className="block rounded-xl border border-bg-border bg-bg-card p-4" key={d.id} to={base + '/' + d.id}>
       <strong>Deal #{d.id} · {d.vehicle}</strong><span className="block">{d.customer} · {d.stage}</span></Link>)}
     <nav className="flex gap-4">{offset > 0 && <button className="underline" onClick={() => setParams({offset: Math.max(0,offset-50)})}>Previous</button>}
       {data.more && <button className="underline" onClick={() => setParams({offset: offset+50})}>Next</button>}</nav></section>;
   return <section className="space-y-5">
+    <BackButton fallback="/account/deals" label="Back to deals" />
     <Link className="underline" to={base}>All deals</Link>
     <header><h1 className="text-2xl font-bold">Deal #{data.id} · {data.vehicle}</h1>
       <p>{data.customer} · {data.stage}</p>

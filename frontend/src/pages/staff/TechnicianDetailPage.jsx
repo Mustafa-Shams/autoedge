@@ -146,7 +146,7 @@ function TechnicianProfile({ profile }) {
         </StaffField>
         {save.isSuccess && <p role="status" className="text-sm text-status-available">Profile saved.</p>}
         {save.isError && <p role="alert" className="text-sm text-status-cancelled">{apiError(save.error, "Could not save profile.")}</p>}
-        <button type="submit" className="rounded-lg bg-accent-blue px-4 py-2 text-sm text-white" disabled={save.isPending}>Save profile</button>
+        <button type="submit" className="rounded-lg bg-accent-blue-strong px-4 py-2 text-sm text-white" disabled={save.isPending}>Save profile</button>
       </form>
       <section className="space-y-3 rounded-xl border border-bg-border bg-bg-card p-5">
         <h2 className="font-semibold text-text-primary">Upcoming bookings</h2>

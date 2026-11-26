@@ -170,7 +170,7 @@ export default function VehiclesPage() {
           {canAdd && (
             <button
               onClick={() => navigate("/vehicles/new")}
-              className="flex items-center gap-2 bg-accent-blue hover:bg-accent-blueHover text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+              className="flex items-center gap-2 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
             >
               <Plus className="w-4 h-4" />
               Add Vehicle
@@ -309,7 +309,7 @@ export default function VehiclesPage() {
                       onClick={() => setPage(pn)}
                       className={`min-w-[2rem] h-8 rounded-lg text-xs font-medium transition-colors ${
                         pn === page
-                          ? "bg-accent-blue text-white"
+                          ? "bg-accent-blue-strong text-white"
                           : "border border-bg-border text-text-secondary hover:bg-bg-elevated"
                       }`}
                     >

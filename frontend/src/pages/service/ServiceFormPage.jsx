@@ -222,7 +222,7 @@ export default function ServiceFormPage() {
             <button
               type="submit"
               disabled={isSubmitting || mutation.isPending || loadingOptions || optionsError}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-accent-blue hover:bg-accent-blueHover text-white disabled:opacity-60"
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white disabled:opacity-60"
             >
               {isSubmitting || mutation.isPending
                 ? "Saving..."

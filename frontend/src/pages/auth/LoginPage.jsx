@@ -59,7 +59,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 bg-accent-blue rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+          <div className="w-14 h-14 bg-accent-blue-strong rounded-2xl flex items-center justify-center mb-4 shadow-lg">
             <Car className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-text-primary">AutoEdge</h1>
@@ -128,7 +128,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-accent-blue hover:bg-accent-blueHover text-white rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>

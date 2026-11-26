@@ -218,7 +218,7 @@ export default function RestockPriorityPage() {
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => handleOpenRestock(item)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent-blue hover:bg-accent-blue-hover text-white text-xs font-medium rounded-lg transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-xs font-medium rounded-lg transition-colors"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         Restock
@@ -296,7 +296,7 @@ export default function RestockPriorityPage() {
               <button
                 onClick={handleRestock}
                 disabled={submitting}
-                className="flex-1 px-4 py-2.5 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
               >
                 {submitting ? (
                   <>

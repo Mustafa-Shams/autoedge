@@ -148,7 +148,7 @@ export default function NotificationsPage() {
                       {n.title}
                     </h3>
                     {!n.is_read && (
-                      <span className="w-2 h-2 bg-accent-blue rounded-full flex-shrink-0" />
+                      <span className="w-2 h-2 bg-accent-blue-strong rounded-full flex-shrink-0" />
                     )}
                   </div>
                   <p className={`text-xs mt-0.5 line-clamp-2 ${n.is_read ? 'text-text-muted' : 'text-text-secondary'}`}>

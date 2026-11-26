@@ -127,7 +127,7 @@ export default function ServiceInfoPage() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
             to="/signup"
-            className="px-8 py-3 bg-accent-blue hover:bg-accent-blue-hover text-white font-semibold rounded-xl transition-colors shadow-lg shadow-accent-blue/20"
+            className="px-8 py-3 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white font-semibold rounded-xl transition-colors shadow-lg shadow-accent-blue/20"
           >
             Create Account
           </Link>

@@ -198,7 +198,7 @@ export default function Sidebar({ onClose }) {
       {/* User Info + Logout */}
       <div className="p-4 border-t border-bg-border">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-accent-blue-strong flex items-center justify-center flex-shrink-0">
             <span className="text-white text-xs font-bold">
               {user?.full_name?.charAt(0)?.toUpperCase() ?? "U"}
             </span>

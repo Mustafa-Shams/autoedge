@@ -342,7 +342,7 @@ export default function CheckoutModal({
               <button
                 type="submit"
                 disabled={submitting || loadingBank || !bankSummary || !terms || quote.isFetching || quote.isError}
-                className="flex-1 py-2.5 text-sm font-semibold text-white bg-[#285bcf] hover:bg-[#214ba9] rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-accent-blue/20 flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 text-sm font-semibold text-white bg-accent-blue-strong hover:bg-accent-blue-strong-hover rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-accent-blue/20 flex items-center justify-center gap-2"
               >
                 {submitting ? (
                   <>

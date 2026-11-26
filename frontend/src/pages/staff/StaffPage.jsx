@@ -59,7 +59,7 @@ export default function StaffPage() {
     <section className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-text-primary">Staff Management</h1>
-        <Link to="/staff/new" className="inline-flex items-center gap-2 rounded-lg bg-accent-blue px-4 py-2 text-sm text-white">
+        <Link to="/staff/new" className="inline-flex items-center gap-2 rounded-lg bg-accent-blue-strong px-4 py-2 text-sm text-white">
           <Plus size={16} /> Add staff
         </Link>
       </header>

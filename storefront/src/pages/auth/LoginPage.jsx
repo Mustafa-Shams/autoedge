@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import PasswordField from '../../components/forms/PasswordField';
+import BackButton from '../../components/common/BackButton';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -52,6 +53,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4 py-12">
       <div className="bg-bg-card border border-bg-border rounded-xl p-8 max-w-md w-full">
+        <BackButton fallback="/" label="Back" className="mb-4" />
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-text-primary mb-1">Welcome Back</h1>
@@ -104,7 +106,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-3 bg-accent-blue hover:bg-accent-blue-hover text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full py-3 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {submitting && (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

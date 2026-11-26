@@ -183,7 +183,7 @@ export default function EmailLogPage() {
             className="input mt-1 block" autoComplete="email" />
         </label>
         <button type="submit" disabled={sending}
-          className="flex items-center gap-2 rounded-lg bg-accent-blue px-4 py-2 text-sm text-white disabled:opacity-50">
+          className="flex items-center gap-2 rounded-lg bg-accent-blue-strong px-4 py-2 text-sm text-white disabled:opacity-50">
           <Send size={16} /> {sending ? 'Sending…' : 'Send test email'}
         </button>
       </form>
@@ -206,7 +206,7 @@ export default function EmailLogPage() {
             onClick={() => handleFilterChange(tab.key)}
             className={`px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
               statusFilter === tab.key
-                ? 'bg-accent-blue text-white'
+                ? 'bg-accent-blue-strong text-white'
                 : 'text-text-secondary hover:text-text-primary hover:bg-bg-elevated'
             }`}
           >

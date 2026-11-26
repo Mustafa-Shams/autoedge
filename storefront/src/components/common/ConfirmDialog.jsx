@@ -21,7 +21,7 @@ export default function ConfirmDialog({
   const variantStyles = {
     danger: 'bg-status-cancelled hover:bg-status-cancelled/80',
     warning: 'bg-status-reserved hover:bg-status-reserved/80',
-    info: 'bg-accent-blue hover:bg-accent-blue-hover',
+    info: 'bg-accent-blue-strong hover:bg-accent-blue-strong-hover',
   };
 
   const variantIconColors = {

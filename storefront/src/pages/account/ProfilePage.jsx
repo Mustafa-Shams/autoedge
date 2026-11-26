@@ -163,7 +163,7 @@ export default function ProfilePage() {
           <button
             type="submit"
             disabled={savingProfile}
-            className="px-6 py-2.5 bg-accent-blue hover:bg-accent-blue-hover text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+            className="px-6 py-2.5 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white font-medium rounded-lg transition-colors disabled:opacity-50"
           >
             {savingProfile ? 'Saving…' : 'Save Changes'}
           </button>
@@ -213,7 +213,7 @@ export default function ProfilePage() {
           <button
             type="submit"
             disabled={savingPw}
-            className="px-6 py-2.5 bg-accent-blue hover:bg-accent-blue-hover text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+            className="px-6 py-2.5 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white font-medium rounded-lg transition-colors disabled:opacity-50"
           >
             {savingPw ? 'Changing…' : 'Change Password'}
           </button>

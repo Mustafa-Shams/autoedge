@@ -125,7 +125,7 @@ export default function ComparePage() {
           </p>
           <Link
             to="/cars"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-accent-blue hover:bg-accent-blue-hover text-white font-semibold rounded-xl transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white font-semibold rounded-xl transition-colors"
           >
             Browse Cars
           </Link>

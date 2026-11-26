@@ -182,7 +182,7 @@ export default function TestDrivesPage() {
           </div>
           {canWrite && <button
             onClick={() => navigate("/test-drives/new")}
-            className="flex items-center gap-2 bg-accent-blue hover:bg-accent-blueHover text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+            className="flex items-center gap-2 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
           >
             <Plus className="w-4 h-4" /> Book Test Drive
           </button>}

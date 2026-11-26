@@ -17,13 +17,16 @@ export default {
           muted:     "#9297AD",
         },
         accent: {
-          blue:      "#4D7FFF",
+          // Text and outlines on dark surfaces; fills with white text use blue-strong (>= 6:1).
+          blue:      "#7399FF",
           blueHover: "#3D6FEF",
+          "blue-strong":       "#285BCF",
+          "blue-strong-hover": "#214BA9",
         },
         status: {
           available: "#22C55E",
           reserved:  "#F59E0B",
-          sold:      "#8B5CF6",
+          sold:      "#A78BFA",
           cancelled: "#EF4444",
           scheduled: "#3B82F6",
         },

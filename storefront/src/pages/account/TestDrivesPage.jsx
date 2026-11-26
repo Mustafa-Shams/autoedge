@@ -111,7 +111,7 @@ export default function TestDrivesPage() {
           </select>
           <button
             onClick={() => navigate('/cars')}
-            className="px-4 py-1.5 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-lg transition-colors"
+            className="px-4 py-1.5 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-sm font-medium rounded-lg transition-colors"
           >
             Book New
           </button>

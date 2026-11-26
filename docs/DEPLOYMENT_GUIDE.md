@@ -392,7 +392,7 @@ If you want actual emails to be sent (reservation confirmations, test drive upda
    | Name | Value |
    |---|---|
    | `EMAIL_PROVIDER` | `brevo` |
-   | `EMAIL_API_KEY` | `xkeysib-YourLongApiKeyHere...` |
+   | `EMAIL_API_KEY` | Your Brevo key (starts with `xkeysib-`). Paste it only into Railway, never into a file. |
    | `EMAIL_FROM_ADDRESS` | The email you verified in step 6 |
 
 8. Railway will redeploy automatically.

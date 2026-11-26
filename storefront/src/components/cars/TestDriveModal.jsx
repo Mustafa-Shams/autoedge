@@ -167,7 +167,7 @@ export default function TestDriveModal({ isOpen, onClose, vehicle }) {
                   navigate('/account/test-drives');
                   onClose();
                 }}
-                className="flex-1 py-2.5 text-sm font-semibold text-white bg-accent-blue hover:bg-accent-blue-hover rounded-xl transition-colors"
+                className="flex-1 py-2.5 text-sm font-semibold text-white bg-accent-blue-strong hover:bg-accent-blue-strong-hover rounded-xl transition-colors"
               >
                 View My Test Drives
               </button>
@@ -315,7 +315,7 @@ export default function TestDriveModal({ isOpen, onClose, vehicle }) {
               <button
                 type="submit"
                 disabled={submitting || !selectedDate || !selectedTime}
-                className="flex-1 py-2.5 text-sm font-semibold text-white bg-accent-blue hover:bg-accent-blue-hover rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-accent-blue/20 flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 text-sm font-semibold text-white bg-accent-blue-strong hover:bg-accent-blue-strong-hover rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-accent-blue/20 flex items-center justify-center gap-2"
               >
                 {submitting ? (
                   <>

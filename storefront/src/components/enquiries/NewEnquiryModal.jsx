@@ -176,7 +176,7 @@ export default function NewEnquiryModal({
             <button
               type="submit"
               disabled={submitting}
-              className="px-6 py-2.5 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2.5 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? 'Sending…' : 'Send Enquiry'}
             </button>

@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getPurchases, openPurchaseConversation, requestPurchaseCancellation } from '../../api/storeApi';
 import { getCustomer } from '../../store/authStore';
 import { formatPrice, formatDate, formatDateTime } from '../../utils/formatters';
+import BackButton from '../../components/common/BackButton';
 
 export default function PurchasesPage() {
   const purchases = useQuery({ queryKey: ['purchases', getCustomer()?.customer_id], queryFn: async () => (await getPurchases()).data });
@@ -32,6 +33,7 @@ export default function PurchasesPage() {
     finally { setPending(null); }
   }
   return <section className="space-y-4">
+    <BackButton fallback="/account" label="Back to Account" />
     <h1 className="text-2xl font-bold">My purchases</h1>
     {purchases.isPending && <p role="status">Loading receipts…</p>}
     {purchases.isError && <p role="alert">Receipts could not load. <button onClick={() => purchases.refetch()} className="underline">Retry</button></p>}

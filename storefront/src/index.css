@@ -9,8 +9,12 @@
   --color-text-primary: #E8EAF0;
   --color-text-secondary: #8B90A7;
   --color-text-muted: #9297AD;
-  --color-accent-blue: #4D7FFF;
+  /* Text and outlines on dark surfaces (>= 4.5:1 even on blue-tinted panels) */
+  --color-accent-blue: #7399FF;
   --color-accent-blue-hover: #3D6FEF;
+  /* Filled buttons and badges carrying white text (>= 6:1) */
+  --color-accent-blue-strong: #285BCF;
+  --color-accent-blue-strong-hover: #214BA9;
   --color-status-available: #22C55E;
   --color-status-reserved: #F59E0B;
   --color-status-sold: #8B5CF6;

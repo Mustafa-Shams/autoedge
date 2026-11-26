@@ -363,7 +363,7 @@ export default function TradeInsPage() {
 
             <div className="flex items-center gap-3">
               <button onClick={() => setOfferTarget(null)} disabled={submitting} className="flex-1 px-4 py-2.5 bg-bg-elevated border border-bg-border rounded-xl text-sm text-text-secondary hover:text-text-primary transition-colors disabled:opacity-40">Cancel</button>
-              <button onClick={handleSubmitOffer} disabled={submitting} className="flex-1 px-4 py-2.5 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-40 flex items-center justify-center gap-2">
+              <button onClick={handleSubmitOffer} disabled={submitting} className="flex-1 px-4 py-2.5 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-40 flex items-center justify-center gap-2">
                 {submitting ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Submitting…</> : <><DollarSign className="w-4 h-4" />Submit Offer</>}
               </button>
             </div>

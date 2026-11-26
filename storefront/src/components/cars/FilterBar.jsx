@@ -84,7 +84,7 @@ export default function FilterBar({
           </svg>
           Filters
           {hasActiveFilters && (
-            <span className="w-2 h-2 bg-accent-blue rounded-full" />
+            <span className="w-2 h-2 bg-accent-blue-strong rounded-full" />
           )}
         </button>
       </div>

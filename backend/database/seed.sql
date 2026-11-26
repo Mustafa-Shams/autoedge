@@ -4,10 +4,10 @@
 
 -- Users (password: Admin@1234)
 INSERT INTO users (full_name, email, password_hash, role) VALUES
-('Admin Manager',  'admin@autoedge.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMqJqhCanbu5pm2YkPqvxTi4PS', 'manager'),
-('Sarah Sales',    'sarah@autoedge.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMqJqhCanbu5pm2YkPqvxTi4PS', 'sales_executive'),
-('Tom Tech',       'tom@autoedge.com',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMqJqhCanbu5pm2YkPqvxTi4PS', 'technician'),
-('Rita Reception', 'rita@autoedge.com',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMqJqhCanbu5pm2YkPqvxTi4PS', 'receptionist')
+('Admin Manager',  'admin@autoedge.com', '$2b$12$c9Iuz222gMEiEWrC19SY6OVvhCe7EYQJmZFgJJ.h0J40oxT7ZwEea', 'manager'),
+('Sarah Sales',    'sarah@autoedge.com', '$2b$12$c9Iuz222gMEiEWrC19SY6OVvhCe7EYQJmZFgJJ.h0J40oxT7ZwEea', 'sales_executive'),
+('Tom Tech',       'tom@autoedge.com',   '$2b$12$c9Iuz222gMEiEWrC19SY6OVvhCe7EYQJmZFgJJ.h0J40oxT7ZwEea', 'technician'),
+('Rita Reception', 'rita@autoedge.com',  '$2b$12$c9Iuz222gMEiEWrC19SY6OVvhCe7EYQJmZFgJJ.h0J40oxT7ZwEea', 'receptionist')
 ON CONFLICT (email) DO NOTHING;
 
 -- Vehicles

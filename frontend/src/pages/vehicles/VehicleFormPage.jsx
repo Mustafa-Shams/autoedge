@@ -582,7 +582,7 @@ export default function VehicleFormPage() {
             <button
               type="submit"
               disabled={saving || mutation.isPending}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-accent-blue hover:bg-accent-blueHover text-white disabled:opacity-60"
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white disabled:opacity-60"
             >
               {saving || mutation.isPending
                 ? "Saving..."

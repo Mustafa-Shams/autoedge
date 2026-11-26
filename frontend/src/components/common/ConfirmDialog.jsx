@@ -26,7 +26,7 @@ export default function ConfirmDialog({ isOpen, title, message, onConfirm, onCan
             className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${
               danger
                 ? "bg-status-cancelled hover:bg-red-600"
-                : "bg-accent-blue hover:bg-accent-blueHover"
+                : "bg-accent-blue-strong hover:bg-accent-blue-strong-hover"
             }`}
           >
             {confirmLabel}

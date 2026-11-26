@@ -39,7 +39,7 @@ export default function CompareBar() {
               to={count >= 2 ? `/compare?ids=${compareIds.join(',')}` : '#'}
               className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                 count >= 2
-                  ? 'bg-accent-blue hover:bg-accent-blue-hover text-white'
+                  ? 'bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white'
                   : 'bg-accent-blue/30 text-white/50 cursor-not-allowed pointer-events-none'
               }`}
             >

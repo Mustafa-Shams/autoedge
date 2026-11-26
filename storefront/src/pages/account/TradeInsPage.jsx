@@ -105,7 +105,7 @@ export default function TradeInsPage() {
         </div>
         <Link
           to="/account/trade-ins/new"
-          className="px-5 py-2.5 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-xl transition-colors"
+          className="px-5 py-2.5 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-sm font-medium rounded-xl transition-colors"
         >
           + New Trade-In
         </Link>
@@ -137,7 +137,7 @@ export default function TradeInsPage() {
           </p>
           <Link
             to="/account/trade-ins/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-xl transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-sm font-medium rounded-xl transition-colors"
           >
             Start a Trade-In
           </Link>

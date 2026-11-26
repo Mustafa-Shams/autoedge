@@ -37,7 +37,7 @@ export default class ErrorBoundary extends Component {
               <BackButton fallback="/dashboard" />
               <button
                 onClick={() => window.location.reload()}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-accent-blue hover:bg-accent-blueHover text-white transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white transition-colors"
               >
                 <RotateCcw className="w-4 h-4" />
                 Reload

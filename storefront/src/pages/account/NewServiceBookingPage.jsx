@@ -212,7 +212,7 @@ export default function NewServiceBookingPage() {
         </p>
         <Link
           to="/account/garage"
-          className="px-5 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-lg transition-colors"
+          className="px-5 py-2 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-sm font-medium rounded-lg transition-colors"
         >
           Go to My Garage
         </Link>
@@ -236,7 +236,7 @@ export default function NewServiceBookingPage() {
             <div
               key={s}
               className={`flex-1 h-1.5 rounded-full transition-colors ${
-                s <= step ? 'bg-accent-blue' : 'bg-bg-border'
+                s <= step ? 'bg-accent-blue-strong' : 'bg-bg-border'
               }`}
             />
           ))}
@@ -502,7 +502,7 @@ export default function NewServiceBookingPage() {
           <button
             onClick={() => setStep(5)}
             disabled={!selectedDate || !selectedSlot}
-            className="w-full py-2.5 text-sm font-semibold text-white bg-accent-blue hover:bg-accent-blue-hover rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-2.5 text-sm font-semibold text-white bg-accent-blue-strong hover:bg-accent-blue-strong-hover rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Continue to Payment
           </button>
@@ -630,7 +630,7 @@ export default function NewServiceBookingPage() {
           <button
             type="submit"
             disabled={submitting || loadingBank || !bankSummary}
-            className="w-full py-2.5 text-sm font-semibold text-white bg-accent-blue hover:bg-accent-blue-hover rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-accent-blue/20 flex items-center justify-center gap-2"
+            className="w-full py-2.5 text-sm font-semibold text-white bg-accent-blue-strong hover:bg-accent-blue-strong-hover rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-accent-blue/20 flex items-center justify-center gap-2"
           >
             {submitting ? (
               <>
@@ -732,7 +732,7 @@ export default function NewServiceBookingPage() {
             </Link>
             <Link
               to="/account/service-bookings"
-              className="flex-1 py-2.5 text-sm font-semibold text-white bg-accent-blue hover:bg-accent-blue-hover rounded-xl transition-colors shadow-lg shadow-accent-blue/20 text-center"
+              className="flex-1 py-2.5 text-sm font-semibold text-white bg-accent-blue-strong hover:bg-accent-blue-strong-hover rounded-xl transition-colors shadow-lg shadow-accent-blue/20 text-center"
             >
               My Bookings
             </Link>

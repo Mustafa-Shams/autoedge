@@ -46,7 +46,7 @@ export default function TradeInInfoPage() {
         <div className="space-y-6">
           {STEPS.map((step) => (
             <div key={step.num} className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-10 h-10 bg-accent-blue text-white rounded-xl flex items-center justify-center text-lg font-bold">
+              <div className="flex-shrink-0 w-10 h-10 bg-accent-blue-strong text-white rounded-xl flex items-center justify-center text-lg font-bold">
                 {step.num}
               </div>
               <div className="flex-1 pt-1">
@@ -94,7 +94,7 @@ export default function TradeInInfoPage() {
       <section className="text-center">
         <Link
           to="/signup"
-          className="inline-block px-8 py-3.5 bg-accent-blue hover:bg-accent-blue-hover text-white font-semibold rounded-xl transition-colors text-lg shadow-lg shadow-accent-blue/20"
+          className="inline-block px-8 py-3.5 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white font-semibold rounded-xl transition-colors text-lg shadow-lg shadow-accent-blue/20"
         >
           Create Account to Start
         </Link>

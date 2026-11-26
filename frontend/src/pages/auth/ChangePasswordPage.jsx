@@ -49,7 +49,7 @@ export default function ChangePasswordPage() {
           <input className="input mt-1" type="password" name="confirm_password" autoComplete="new-password" minLength={8} required />
         </label>
         {error && <p role="alert" className="text-sm text-status-cancelled">{error}</p>}
-        <button type="submit" disabled={saving} className="rounded-lg bg-accent-blue px-4 py-2 text-sm text-white">
+        <button type="submit" disabled={saving} className="rounded-lg bg-accent-blue-strong px-4 py-2 text-sm text-white">
           {saving ? "Saving…" : "Change password"}
         </button>
         <button type="button" onClick={() => { logout(); navigate("/login", { replace: true }); }}

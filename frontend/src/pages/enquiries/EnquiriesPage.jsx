@@ -89,7 +89,7 @@ export default function EnquiriesPage() {
               onClick={() => { setStatusFilter(f.value); setPage(1); }}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                 statusFilter === f.value
-                  ? 'bg-accent-blue text-white'
+                  ? 'bg-accent-blue-strong text-white'
                   : 'bg-bg-elevated border border-bg-border text-text-secondary hover:text-text-primary'
               }`}
             >
@@ -111,7 +111,7 @@ export default function EnquiriesPage() {
             onClick={() => { setAssignedFilter(assignedFilter === 'mine' ? '' : 'mine'); setPage(1); }}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
               assignedFilter === 'mine'
-                ? 'bg-accent-blue text-white'
+                ? 'bg-accent-blue-strong text-white'
                 : 'bg-bg-elevated border border-bg-border text-text-secondary hover:text-text-primary'
             }`}
           >

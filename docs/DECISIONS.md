@@ -99,3 +99,5 @@ For a catalog snapshot, run `backend/venv/Scripts/python.exe scripts/db_check.py
 - The category column stays free text without a database check, because older installations may hold other values (covered by a migration test). The API accepts only the four values. A missing or unknown category counts as Vehicle/Price when the thread concerns a car or purchase and General otherwise.
 - Threads outside a staff member's categories return 404, like other ownership checks (decision 18). Staff with full enquiry access may recategorise a misfiled thread.
 - Linking a General enquiry to a deal makes it Vehicle/Price, because it is now about buying that car and the deal's salesperson must be able to read it.
+- Colour contrast: blue is split into a text tone (`accent-blue`, #7399FF) and a fill tone for white text (`accent-blue-strong`, #285BCF; hover #214BA9). No single blue reaches 4.5:1 both as text on dark panels and behind white text. Staff `status.sold` is lightened to #A78BFA for badge text.
+- The storefront Home page has no Back button because it is the root of the site; every other page has one.

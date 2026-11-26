@@ -5,10 +5,10 @@
 **Course:** Database Systems  
 **Author:** Mustafa Shams  
 **Live URLs:** *(add after Vercel deployment)*  
-- Staff Dashboard: `https://your-staff-url.vercel.app`
-- Customer Storefront: `https://your-storefront-url.vercel.app`
-- Backend API: `https://your-railway-url.up.railway.app`
-- API Docs: `https://your-railway-url.up.railway.app/docs`
+- Staff Dashboard: https://autoedge-three.vercel.app
+- Customer Storefront: https://autoedge-storefront.vercel.app
+- Backend API: https://autoedge-production.up.railway.app
+- API Docs: https://autoedge-production.up.railway.app/docs
 
 ---
 
@@ -26,7 +26,7 @@ graph TB
     end
 
     subgraph "Neon"
-        DB["PostgreSQL 16<br/>27 Tables + Views + Trigger"]
+        DB["PostgreSQL 16<br/>32 Tables + Views + Triggers"]
     end
 
     subgraph "External (Optional)"
@@ -52,7 +52,7 @@ graph TB
 | Staff Frontend | React 18, Vite 8, Tailwind CSS v3, Shadcn/ui |
 | Customer Storefront | React 18, Vite 8, Tailwind CSS v4 |
 | Backend API | FastAPI, SQLAlchemy 2.0, Alembic, Pydantic v2 |
-| Database | PostgreSQL 16 (Neon), 27 normalised tables |
+| Database | PostgreSQL 16 (Neon), 32 normalised tables (Alembic head `0016_enquiry_category`) |
 | Auth | JWT Bearer tokens (24h expiry), bcrypt hashing |
 | Hosting | Vercel (frontends) + Railway (backend) + Neon (database) |
 | Email | Brevo (optional — works without it via in-app notifications) |
@@ -60,7 +60,7 @@ graph TB
 
 ---
 
-## ER Diagram (27 Tables)
+## ER Diagram (32 Tables)
 
 ```mermaid
 erDiagram
@@ -366,6 +366,71 @@ erDiagram
     sales ||--o{ commissions : "generates"
     sales }o--o| reservations : "from reservation"
     sales }o--o| trade_in_requests : "with trade-in"
+
+    %% ── Deals, physical units and trade acquisitions (migrations 0006-0016) ──
+    deals {
+        int deal_id PK
+        int customer_id FK
+        int vehicle_id FK
+        int unit_id FK
+        int reservation_id FK
+        int sale_id FK
+        string stage
+        datetime pickup_deadline
+        datetime refund_requested_at
+        int refund_approved_by FK
+    }
+    inventory_units {
+        int unit_id PK
+        int vehicle_id FK
+        int intake_trade_id FK
+        string vin UK
+        int verified_by FK
+        datetime verified_at
+    }
+    sales_assistance {
+        int assistance_id PK
+        int deal_id FK
+        int owner_id FK
+        string kind
+        int enquiry_id FK
+        int test_drive_id FK
+        int sale_id FK
+        datetime closed_at
+    }
+    trade_acquisitions {
+        int trade_in_id PK
+        decimal inspected_value
+        int terms_version
+        int approved_version
+        string vin
+        datetime intake_at
+        decimal excess_amount
+        int listing_id FK
+    }
+    deal_activity {
+        int activity_id PK
+        int trade_in_id FK
+        int test_drive_id FK
+        datetime at
+        string title
+    }
+
+    customers ||--o{ deals : "has"
+    vehicles ||--o{ deals : "for listing"
+    vehicles ||--o{ inventory_units : "physical units"
+    inventory_units ||--o| deals : "allocated to"
+    reservations ||--o| deals : "hold"
+    sales ||--o| deals : "purchase"
+    deals ||--o{ sales_assistance : "assisted by"
+    users ||--o{ sales_assistance : "owns deal"
+    deals ||--o{ enquiries : "conversation"
+    deals ||--o{ test_drives : "drive"
+    deals ||--o{ trade_in_requests : "trade-in"
+    trade_in_requests ||--o| trade_acquisitions : "acquired as"
+    trade_acquisitions ||--o| inventory_units : "intake unit"
+    trade_in_requests ||--o{ deal_activity : "dated changes"
+    test_drives ||--o{ deal_activity : "dated changes"
 ```
 
 ---
@@ -411,15 +476,17 @@ erDiagram
 
 ## Database Features (for the teacher)
 
-1. **27 normalised tables** with primary keys, foreign keys (`RESTRICT` / `CASCADE` / `SET NULL` chosen deliberately) and `CHECK` constraints.
+1. **32 normalised tables** with primary keys, foreign keys (`RESTRICT` / `CASCADE` / `SET NULL` chosen deliberately) and `CHECK` constraints.
 2. **Partial unique indexes** — one active reservation per customer per car, one open restock request, no double-booked test-drive or technician slot.
-3. A PL/pgSQL **trigger** keeping `vehicles.status` consistent with stock.
+3. PL/pgSQL **triggers**: `trg_vehicle_status_sync` keeps `vehicles.status` consistent with stock, and `stock_units_on_insert` creates one `inventory_units` row per unit of a new listing.
 4. **Views** (`v_vehicle_catalog`, `v_restock_priority`) used by the API.
 5. **Transactions** with `SELECT ... FOR UPDATE`, a fixed lock order, and an idempotency key (reserve, cancel, expire, pay service fee, complete sale).
 6. **Ledger tables** (`bank_transactions`, `stock_movements`) giving a full audit trail; `CHECK (balance >= 0)` as DB-level protection.
 7. **Concurrency test** proving no overselling.
 8. **Aggregations and joins:** ratings, restock ranking, dashboard KPIs, customer history.
 9. **Indexes** on every foreign key and on status/date columns, with the reason in comments.
+10. **Check constraints as business rules**: `ck_deal_stage` ties each deal stage to the records it must have (a reserved deal has a unit and a hold; a collected deal has a sale), and `ck_unit_verification` only allows a VIN together with the verifying staff member and time.
+11. **Shared deal number**: one `deals` row links enquiry, test drive, trade-in, reservation, sale, unit and pickup; a partial unique index (`uq_shopping_pair`) keeps one open shopping deal per customer and car.
 
 ---
 

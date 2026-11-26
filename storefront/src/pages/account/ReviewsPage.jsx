@@ -131,7 +131,7 @@ export default function ReviewsPage() {
           </p>
           <Link
             to="/cars"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-xl transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-sm font-medium rounded-xl transition-colors"
           >
             Browse Cars
           </Link>
@@ -214,7 +214,7 @@ export default function ReviewsPage() {
                     <button
                       onClick={() => handleSaveEdit(review.review_id)}
                       disabled={saving}
-                      className="px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40"
+                      className="px-4 py-2 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40"
                     >
                       {saving ? 'Saving…' : 'Save Changes'}
                     </button>

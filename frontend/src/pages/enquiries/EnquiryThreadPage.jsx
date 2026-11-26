@@ -151,7 +151,7 @@ export default function EnquiryThreadPage() {
                   <div
                     className={`max-w-[75%] rounded-2xl p-4 ${
                       isStaff
-                        ? 'bg-accent-blue text-white rounded-br-md'
+                        ? 'bg-accent-blue-strong text-white rounded-br-md'
                         : 'bg-bg-elevated border border-bg-border text-text-primary rounded-bl-md'
                     }`}
                   >
@@ -192,7 +192,7 @@ export default function EnquiryThreadPage() {
                 <button
                   type="submit"
                   disabled={sending || !replyText.trim()}
-                  className="px-5 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {sending ? 'Sending…' : 'Send Reply'}
                 </button>
@@ -209,7 +209,7 @@ export default function EnquiryThreadPage() {
             {enquiry.customer ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center text-xs font-bold text-white">
+                  <div className="w-8 h-8 rounded-full bg-accent-blue-strong flex items-center justify-center text-xs font-bold text-white">
                     {enquiry.customer.full_name?.[0]?.toUpperCase() || 'C'}
                   </div>
                   <div>

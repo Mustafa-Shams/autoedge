@@ -76,7 +76,7 @@ export default function StaffDetailPage() {
       <header className="flex flex-wrap items-center gap-3">
         <BackButton fallback="/staff" />
         <h1 className="text-2xl font-bold text-text-primary">{member.full_name}</h1>
-        <Link className="ml-auto rounded-lg bg-accent-blue px-4 py-2 text-sm text-white" to={"/staff/" + id + "/edit"}>Edit staff member</Link>
+        <Link className="ml-auto rounded-lg bg-accent-blue-strong px-4 py-2 text-sm text-white" to={"/staff/" + id + "/edit"}>Edit staff member</Link>
       </header>
       <dl className="grid gap-4 rounded-xl border border-bg-border bg-bg-card p-5 sm:grid-cols-3">
         {details.map(([label, value]) => (
@@ -141,7 +141,7 @@ export default function StaffDetailPage() {
             <StaffPasswordFields temporary value={password} confirm={confirm}
               onChange={(value, confirmationValue) => { setPassword(value); setConfirm(confirmationValue); }} />
             {passwordError && <p role="alert" className="text-sm text-status-cancelled">{passwordError}</p>}
-            <button className="rounded bg-accent-blue px-3 py-2 text-sm text-white" disabled={reset.isPending} type="submit">Set temporary password</button>
+            <button className="rounded bg-accent-blue-strong px-3 py-2 text-sm text-white" disabled={reset.isPending} type="submit">Set temporary password</button>
             <button type="button" className="ml-3 text-sm text-text-secondary"
               onClick={() => { setResetting(false); setPassword(""); setConfirm(""); setPasswordError(""); }}>Cancel</button>
           </form>

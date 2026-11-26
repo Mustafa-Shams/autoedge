@@ -5,6 +5,7 @@
 import { Link } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import { useNotifications } from '../../contexts/NotificationContext';
+import BackButton from '../../components/common/BackButton';
 
 const SHORTCUTS = [
   { to: '/account/bank', label: 'Bank Account', icon: '💳', desc: 'View balance and transactions' },
@@ -24,6 +25,7 @@ export default function OverviewPage() {
 
   return (
     <div>
+      <BackButton fallback="/" label="Back" className="mb-4" />
       {/* Welcome */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-text-primary mb-1">

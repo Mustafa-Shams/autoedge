@@ -5,6 +5,7 @@ import { buyVehicle, getBankSummary, getPurchaseQuote } from '../../api/storeApi
 import { getCustomer } from '../../store/authStore';
 import { formatPrice } from '../../utils/formatters';
 import PinHint from '../../components/payment/PinHint';
+import BackButton from '../../components/common/BackButton';
 
 export default function PurchaseCheckout() {
   const { id } = useParams();
@@ -46,6 +47,7 @@ export default function PurchaseCheckout() {
     }
   }
   return <section className="max-w-xl space-y-5">
+    <BackButton fallback={`/cars/${id}`} label="Back to car" />
     <Link to="/account/purchases" className="text-accent-blue">My purchases</Link>
     <h1 className="text-2xl font-bold">Review purchase</h1>
     {quote.isPending && <p role="status">Loading the current price and wallet balance…</p>}
@@ -65,7 +67,7 @@ export default function PurchaseCheckout() {
       {Number(offer.balance) < Number(offer.charge) && <Link className="block text-accent-blue" to="/account/bank">Add funds to your demo wallet</Link>}
       <label className="block">Confirm your account password<input required type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} className="mt-1 block w-full rounded-lg border border-bg-border bg-bg-elevated p-2" /></label>
       <PinHint />
-      <button disabled={busy || quote.isFetching || Number(offer.balance) < Number(offer.charge)} className="rounded-xl bg-[#285bcf] px-5 py-3 font-semibold text-white disabled:opacity-50">{busy ? 'Processing…' : `Pay ${formatPrice(offer.charge)} and reserve pickup`}</button>
+      <button disabled={busy || quote.isFetching || Number(offer.balance) < Number(offer.charge)} className="rounded-xl bg-accent-blue-strong px-5 py-3 font-semibold text-white disabled:opacity-50">{busy ? 'Processing…' : `Pay ${formatPrice(offer.charge)} and reserve pickup`}</button>
     </form>}
     {error && <p role="alert">{error}</p>}
   </section>;

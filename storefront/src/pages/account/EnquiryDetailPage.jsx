@@ -190,7 +190,7 @@ export default function EnquiryDetailPage() {
               <div
                 className={`max-w-[80%] rounded-2xl p-4 ${
                   isCustomer
-                    ? 'bg-accent-blue text-white rounded-br-md'
+                    ? 'bg-accent-blue-strong text-white rounded-br-md'
                     : 'bg-bg-card border border-bg-border text-text-primary rounded-bl-md'
                 }`}
               >
@@ -250,7 +250,7 @@ export default function EnquiryDetailPage() {
             <button
               type="submit"
               disabled={sending || !replyText.trim()}
-              className="px-5 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-5 py-2 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {sending ? (
                 <>

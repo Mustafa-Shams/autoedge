@@ -228,7 +228,7 @@ export default function EmiPage() {
                   onClick={() => handleChange('termMonths', t)}
                   className={`py-2 text-sm rounded-lg border transition-colors ${
                     inputs.termMonths === t
-                      ? 'bg-accent-blue text-white border-accent-blue'
+                      ? 'bg-accent-blue-strong text-white border-accent-blue'
                       : 'bg-bg-elevated text-text-secondary border-bg-border hover:border-accent-blue/50'
                   }`}
                 >
@@ -282,7 +282,7 @@ export default function EmiPage() {
             <h3 className="text-sm font-semibold text-text-primary mb-3">Payment Composition</h3>
             <div className="h-4 rounded-full overflow-hidden flex bg-bg-elevated">
               <div
-                className="bg-accent-blue h-full transition-all"
+                className="bg-accent-blue-strong h-full transition-all"
                 style={{ width: `${inputs.price > 0 ? (result.principal / result.totalPayable) * 100 : 0}%` }}
                 title={`Principal: ${formatPrice(result.principal)}`}
               />
@@ -298,7 +298,7 @@ export default function EmiPage() {
               />
             </div>
             <div className="flex items-center gap-4 mt-3 text-xs">
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-accent-blue rounded-full" /> Loan</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-accent-blue-strong rounded-full" /> Loan</span>
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-status-reserved rounded-full" /> Interest</span>
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-status-available rounded-full" /> Down Payment</span>
             </div>
@@ -312,7 +312,7 @@ export default function EmiPage() {
               }
               // TODO: prefilled enquiry in P40
             }}
-            className="w-full py-3 bg-accent-blue hover:bg-accent-blue-hover text-white font-semibold rounded-xl transition-colors"
+            className="w-full py-3 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white font-semibold rounded-xl transition-colors"
           >
             Ask about finance
           </button>

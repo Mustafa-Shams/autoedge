@@ -262,7 +262,7 @@ export default function ServiceBookingsStaffPage() {
             onClick={() => handleFilterChange(tab.key)}
             className={`px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
               statusFilter === tab.key
-                ? 'bg-accent-blue text-white'
+                ? 'bg-accent-blue-strong text-white'
                 : 'text-text-secondary hover:text-text-primary hover:bg-bg-elevated'
             }`}
           >
@@ -422,7 +422,7 @@ export default function ServiceBookingsStaffPage() {
                             e.stopPropagation();
                             openConfirmModal(b);
                           }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent-blue hover:bg-accent-blue-hover text-white text-xs font-medium rounded-lg transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-xs font-medium rounded-lg transition-colors"
                         >
                           <CheckCircle className="w-3.5 h-3.5" />
                           Confirm
@@ -663,7 +663,7 @@ export default function ServiceBookingsStaffPage() {
                     setDetailBooking(null);
                     openConfirmModal(detailBooking);
                   }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-accent-blue hover:bg-accent-blue-hover text-white font-medium rounded-xl transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white font-medium rounded-xl transition-colors"
                 >
                   <CheckCircle className="w-5 h-5" />
                   Confirm This Booking
@@ -794,7 +794,7 @@ export default function ServiceBookingsStaffPage() {
               <button
                 onClick={handleConfirm}
                 disabled={confirming || !selectedTechId}
-                className="flex-1 px-4 py-2.5 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 bg-accent-blue-strong hover:bg-accent-blue-strong-hover text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
               >
                 {confirming ? (
                   <>
