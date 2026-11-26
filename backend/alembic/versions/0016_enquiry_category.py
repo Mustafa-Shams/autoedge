@@ -16,7 +16,14 @@ def specialty_check(allow_general):
     values = "'Mechanic','Electrician','AC Specialist','Body & Paint','Tyre & Alignment'"
     if allow_general:
         values += ",'General'"
-    op.create_check_constraint("ck_tp_specialty", "technician_profiles", f"specialty IN ({values})")
+        op.create_check_constraint("ck_tp_specialty", "technician_profiles", f"specialty IN ({values})")
+        return
+    # Downgrade keeps technicians created with General: the 0015 rule applies to new and changed rows,
+    # and is validated in full only when no such technician remains.
+    op.execute("ALTER TABLE technician_profiles ADD CONSTRAINT ck_tp_specialty "
+               f"CHECK (specialty IN ({values})) NOT VALID")
+    if not op.get_bind().scalar(sa.text("SELECT EXISTS (SELECT FROM technician_profiles WHERE specialty='General')")):
+        op.execute("ALTER TABLE technician_profiles VALIDATE CONSTRAINT ck_tp_specialty")
 
 
 def upgrade():

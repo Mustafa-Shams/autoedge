@@ -252,3 +252,114 @@ def test_existing_enquiry_values_survive_upgrade_and_refused_downgrade(local_pg)
     with db.connect() as conn:
         assert conn.exec_driver_sql("SELECT subject,category FROM enquiries").one() == ("Question", "Pickup")
         assert conn.scalar(text("SELECT version_num FROM alembic_version")) == "0006_units_and_deals"
+
+
+SNAPSHOT_QUERIES = {
+    "columns": """SELECT table_name, column_name, data_type, character_maximum_length, numeric_precision,
+                  numeric_scale, is_nullable, column_default FROM information_schema.columns
+                  WHERE table_schema='public' ORDER BY 1,2""",
+    "indexes": "SELECT tablename, indexname, indexdef FROM pg_indexes WHERE schemaname='public' ORDER BY 1,2",
+    "constraints": """SELECT c.conrelid::regclass::text, c.conname, pg_get_constraintdef(c.oid), c.convalidated
+                      FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace
+                      WHERE n.nspname='public' ORDER BY 1,2""",
+    "triggers": """SELECT c.relname, t.tgname, pg_get_triggerdef(t.oid) FROM pg_trigger t
+                   JOIN pg_class c ON c.oid=t.tgrelid WHERE NOT t.tgisinternal ORDER BY 1,2""",
+    "views": "SELECT viewname, definition FROM pg_views WHERE schemaname='public' ORDER BY 1",
+    "functions": """SELECT p.proname, md5(p.prosrc) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                    WHERE n.nspname='public' ORDER BY 1""",
+}
+
+
+def schema_snapshot(db):
+    with db.connect() as conn:
+        return {key: conn.exec_driver_sql(query).all() for key, query in SNAPSHOT_QUERIES.items()}
+
+
+# Known, reviewed differences between Base.metadata and the migrated schema. Anything else is drift.
+ACCEPTED_MODEL_DIFFERENCES = {
+    ("add_constraint", "commissions", "uq_commission_sale"),  # Same column is already UNIQUE (commissions_sale_id_key).
+    ("remove_constraint", "customer_accounts", "customer_accounts_email_key"),  # Model spells it as a unique index.
+    ("add_index", "customer_accounts", "ix_customer_accounts_email"),
+    ("remove_constraint", "users", "users_email_key"),
+    ("add_index", "users", "ix_users_email"),
+    ("remove_constraint", "reviews", "uq_review_one_per_customer_vehicle"),  # Database is stricter than the model.
+    ("remove_column", "service_parts", "total_cost"),  # Model computes it as a property.
+    ("remove_table_comment", "deals", None),  # 0006 installation marker.
+}
+
+
+def model_differences(db):
+    import re
+    import app.models  # noqa: F401
+    from alembic.autogenerate import compare_metadata
+    from alembic.migration import MigrationContext
+    from app.db.base import Base
+
+    found = set()
+    with db.connect() as conn:
+        context = MigrationContext.configure(conn, opts={"compare_type": True})
+        for diff in compare_metadata(context, Base.metadata):
+            for item in diff if isinstance(diff, list) else [diff]:
+                kind = item[0]
+                if kind in ("add_index", "remove_index"):
+                    index = item[1]
+                    named = index.name.startswith(("idx_", "uq_"))
+                    pk_only = (re.fullmatch(r"ix_\w+", index.name) and len(index.columns) == 1
+                               and list(index.columns)[0].primary_key)
+                    # Migrations name their indexes; models mark primary keys index=True.
+                    if (kind == "remove_index" and named) or (kind == "add_index" and pk_only):
+                        continue
+                    found.add((kind, index.table.name, index.name))
+                elif kind in ("add_constraint", "remove_constraint"):
+                    found.add((kind, item[1].table.name, item[1].name))
+                elif kind in ("add_column", "remove_column"):
+                    found.add((kind, item[2], item[3].name))
+                elif kind in ("add_table", "remove_table"):
+                    found.add((kind, item[1].name, None))
+                elif kind.startswith("modify_"):
+                    found.add((kind, item[2], item[3]))
+                elif kind == "remove_table_comment":
+                    found.add((kind, item[1].name, None))
+                else:
+                    found.add((kind, repr(item)[:120], None))
+    return found
+
+
+def test_full_round_trip_with_strays_matches_models(local_pg):
+    """0005 with the four empty strays -> head -> 0005 -> head reproduces one schema that matches the models."""
+    db, migrate = local_pg
+    migrate("upgrade", "0005_staff_portal")
+    at_0005 = schema_snapshot(db)
+    from app.models import Deal, InventoryUnit, SalesAssistance, TradeAcquisition
+    # Neon received these from create_all with the models of the time.
+    Deal.metadata.create_all(db, tables=[m.__table__ for m in (Deal, InventoryUnit, SalesAssistance, TradeAcquisition)])
+    migrate("upgrade", "head")
+    first_head = schema_snapshot(db)
+    assert {name for name, *_ in first_head["triggers"]} == {"vehicles"}
+    assert {row[1] for row in first_head["triggers"]} == {"stock_units_on_insert", "trg_vehicle_status_sync"}
+    assert {row[0] for row in first_head["views"]} == {"v_vehicle_catalog", "v_restock_priority"}
+    assert model_differences(db) == ACCEPTED_MODEL_DIFFERENCES
+    migrate("downgrade", "0005_staff_portal")
+    assert schema_snapshot(db) == at_0005
+    migrate("upgrade", "head")
+    assert schema_snapshot(db) == first_head
+
+
+def test_enquiry_category_downgrade_keeps_general_technicians(local_pg):
+    db, migrate = local_pg
+    migrate("upgrade", "head")
+    with db.begin() as conn:
+        conn.exec_driver_sql("""INSERT INTO users(full_name,email,password_hash,role)
+                               VALUES ('Tech','tech@example.com','unused','technician')""")
+        conn.exec_driver_sql("INSERT INTO technician_profiles(user_id,specialty,is_bookable) VALUES (1,'General',false)")
+    migrate("downgrade", "0015_deal_activity")
+    with db.connect() as conn:
+        assert conn.scalar(text("SELECT specialty FROM technician_profiles")) == "General"
+        # The 0015 rule still applies to new rows; existing rows are kept for review.
+        assert conn.scalar(text("SELECT convalidated FROM pg_constraint WHERE conname='ck_tp_specialty'")) is False
+    with pytest.raises(Exception, match="ck_tp_specialty"):
+        with db.begin() as conn:
+            conn.exec_driver_sql("UPDATE technician_profiles SET specialty='Painter'")
+    migrate("upgrade", "head")
+    with db.connect() as conn:
+        assert conn.scalar(text("SELECT convalidated FROM pg_constraint WHERE conname='ck_tp_specialty'")) is True

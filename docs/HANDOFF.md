@@ -8,8 +8,8 @@ Branch `redesign-local` (local only, never pushed). The owner confirmed the rede
 |---|---|---|
 | 0. Checkpoint branch | Done | Commit 0df96d0 on redesign-local holds the whole Codex working tree. Secret scan of the diff found nothing. |
 | 1. Full suite + two PostgreSQL bugs | Done | 192 passed, 7 warnings, on local PostgreSQL. Service cancellation writes txn_type `Refund` and new technicians default to `General`, allowed by 0016. Both regression tests now assert the stored values directly. |
-| 2. Migration round trip and schema comparison | Next | |
-| 3. Restore bank flip card | Pending | |
+| 2. Migration round trip and schema comparison | Done | New tests in backend/tests/test_deal_migration.py: 0005 plus the four model-shaped empty strays -> head -> 0005 -> head. The 0005 catalog (columns, indexes, constraints, triggers, views, functions) is identical after downgrade and head is identical after re-upgrade. Model comparison leaves only eight reviewed naming differences (ACCEPTED_MODEL_DIFFERENCES); any new drift fails the test. 0016 downgrade no longer fails when technicians use General: the old rule is re-added NOT VALID and validated when no General row exists. scripts/db_check.py reviewed: read-only repeatable-read transaction, SELECT only; it now also reads DB_CHECK_URL. 13 migration tests passed. |
+| 3. Restore bank flip card | Next | |
 | 4. Enquiry categories | Pending | |
 | 5. Leftovers | Pending | |
 | 6. docs/DEMO.md | Pending | |

@@ -1,6 +1,7 @@
 """Print a consistent PostgreSQL catalog and row-count snapshot as JSON."""
 import argparse
 import json
+import os
 import sys
 
 import psycopg2
@@ -48,9 +49,13 @@ def inspect_database(dsn):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("connection_string", help="PostgreSQL URI or libpq connection string")
+    parser.add_argument("connection_string", nargs="?",
+                        help="PostgreSQL URI; omit it to read DB_CHECK_URL and keep it out of shell history")
+    dsn = parser.parse_args().connection_string or os.environ.get("DB_CHECK_URL")
+    if not dsn:
+        sys.exit("Supply a connection string or set DB_CHECK_URL")
     try:
-        print(json.dumps(inspect_database(parser.parse_args().connection_string), indent=2))
+        print(json.dumps(inspect_database(dsn), indent=2))
     except psycopg2.Error as exc:
         # Connection diagnostics can include supplied credentials or DSN fragments.
         sys.exit(f"PostgreSQL inspection failed ({exc.pgcode or 'connection error'})")

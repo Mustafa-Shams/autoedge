@@ -89,3 +89,9 @@ Revision `0006_units_and_deals` now installs physical units, purchases, receipt 
 On the transition from 0005, 0006 locks and checks each of the four known table names, then replaces empty remnants inside the migration transaction. A populated stray, incompatible existing purchase column, or surviving dependency prevents the upgrade. Downgrade refuses to discard populated purchase tables, including generated inventory rows, or populated purchase columns. Historical backfill reads existing business rows and inserts into the new tables only. A failed check rolls the transaction back. Review deployment separately from the local rehearsal.
 
 For a catalog snapshot, run `backend/venv/Scripts/python.exe scripts/db_check.py "<PostgreSQL connection string>"`. It reports non-system tables and row counts, views (including materialized views), non-internal triggers and Alembic versions in one read-only, repeatable-read transaction. The connection string comes from the command argument. The output omits it.
+
+## November 26 — verification decisions (Claude session)
+
+- The owner confirmed the redesign workflow is final. Assisted-deal commission at handover, the manager-approved 20% pre-pickup refund, shared deals, units, trade acquisitions, Today and the outbox are by design.
+- Downgrading 0016 while technicians have the General specialty keeps those rows. The 0015 constraint is re-added NOT VALID so it applies to new and changed rows, and it is validated in full when no General technician remains. Chosen over refusing the downgrade (blocks rollback) or rewriting specialties (silently changes data).
+- `scripts/db_check.py` accepts the connection string from `DB_CHECK_URL` so a production URL does not have to be typed on the command line.
