@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getEnquiry, replyToEnquiry, updateEnquiry } from '../../api/enquiriesApi';
+import { ENQUIRY_CATEGORIES, canSeeCategory } from '../../utils/enquiryCategories';
 import { hasModuleAccess } from "../../utils/staffAccess";
 import { useAuth } from '../../hooks/useAuth';
 import BackButton from '../../components/common/BackButton';
@@ -85,6 +86,17 @@ export default function EnquiryThreadPage() {
     }
   };
 
+  const handleCategory = async (category) => {
+    try {
+      await updateEnquiry(id, { category });
+      // Moving a thread to another team's category hands it over; leave if it is no longer ours.
+      if (!canSeeCategory(user, category, enquiry.assigned_to)) navigate('/enquiries');
+      else await fetchThread();
+    } catch (err) {
+      setReplyError(err.response?.data?.detail || 'Category could not be changed.');
+    }
+  };
+
   const handleUpdateStatus = async (newStatus) => {
     try {
       await updateEnquiry(id, { status: newStatus });
@@ -122,6 +134,7 @@ export default function EnquiryThreadPage() {
           <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full ${STATUS_BADGE[enquiry.status] || ''}`}>
             {enquiry.status}
           </span>
+          <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded-full border border-bg-border text-text-secondary">{enquiry.category}</span>
         </div>
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left column — Thread */}
@@ -242,6 +255,16 @@ export default function EnquiryThreadPage() {
           {canReply && <div className="bg-bg-card border border-bg-border rounded-xl p-4">
             <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Actions</h3>
             <div className="space-y-2">
+              <label className="block text-xs text-text-secondary">
+                Category
+                <select
+                  value={enquiry.category}
+                  onChange={(e) => handleCategory(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 text-xs rounded-lg bg-bg-elevated border border-bg-border text-text-primary"
+                >
+                  {ENQUIRY_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </label>
               {enquiry.status !== 'Closed' && (
                 <button
                   onClick={() => handleUpdateStatus('Closed')}

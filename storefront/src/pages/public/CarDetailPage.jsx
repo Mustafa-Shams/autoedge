@@ -48,6 +48,7 @@ export default function CarDetailPage() {
   // Enquiry modal state (P40)
   const [showEnquiry, setShowEnquiry] = useState(false);
   const [enquiryPrefill, setEnquiryPrefill] = useState('');
+  const enquiryCategory = enquiryPrefill.startsWith('Finance') ? 'Finance' : 'Vehicle/Price';
 
   // Restock request state (P41)
   const [restockRequested, setRestockRequested] = useState(false);
@@ -568,6 +569,7 @@ export default function CarDetailPage() {
         }}
         vehicleId={vehicle.vehicle_id}
         prefillSubject={enquiryPrefill}
+        defaultCategory={enquiryCategory}
       />
     </div>
   );

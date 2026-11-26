@@ -11,6 +11,7 @@ from app.models.user import User
 from app.models.customer_vehicle import CustomerVehicle
 from app.models.customer import Customer
 from app.models.deal import Deal
+from app.core.enquiry_categories import DUTY_ROLE, can_see, effective_category, label, visible_filter
 from app.models.enquiry import Enquiry
 from app.models.sale import Sale
 from app.models.service_booking import ServiceBooking
@@ -31,15 +32,17 @@ def today(user=Depends(get_current_user), db: Session = Depends(get_db)):
     tasks = []
     people = db.query(User).filter_by(is_active=True).order_by(User.user_id).all()
 
-    def task(module, record_id, assigned_to, deal_id=None, *, manager_only=False, extra_module=None, **fields):
+    def task(module, record_id, assigned_to, deal_id=None, *, manager_only=False, extra_module=None,
+             eligible=None, duty_role=None, **fields):
         candidates = [person for person in people if person.access.get(module) == "full"
                       and (not extra_module or person.access.get(extra_module) == "full")
-                      and (not manager_only or person.role == "manager")]
+                      and (not manager_only or person.role == "manager")
+                      and (eligible is None or eligible(person))]
         owner = next((person for person in candidates if person.user_id == assigned_to), None)
         if not owner:
             # Unclaimed work goes to an active duty owner. It does not confer sales commission.
-            duty_role = {"sales": "sales_executive", "enquiries": "receptionist", "service": "receptionist",
-                         "test_drives": "sales_executive", "trade_ins": "sales_executive"}.get(module)
+            duty_role = duty_role or {"sales": "sales_executive", "enquiries": "receptionist", "service": "receptionist",
+                                      "test_drives": "sales_executive", "trade_ins": "sales_executive"}.get(module)
             duty = ([person for person in candidates if person.role == duty_role]
                     or [person for person in candidates if person.role == "manager"] or candidates)
             owner = duty[(record_id - 1) % len(duty)] if duty else None
@@ -113,7 +116,11 @@ def today(user=Depends(get_current_user), db: Session = Depends(get_db)):
     if access.get("enquiries", "none") != "none":
         threads = db.query(Enquiry).filter_by(status="Open")
         if not manager:
-            threads = threads.filter(or_(Enquiry.assigned_to == user.user_id, Enquiry.assigned_to.is_(None)))
+            threads = threads.filter(or_(Enquiry.assigned_to == user.user_id, Enquiry.assigned_to.is_(None)),
+                                     visible_filter(user))
         for e in threads.order_by(Enquiry.updated_at):
-            task("enquiries", e.enquiry_id, e.assigned_to, e.deal_id, action="Review enquiry", detail=e.subject, path=f"/enquiries/{e.enquiry_id}")
+            # Only staff who handle this category may own it; unclaimed threads go to that category's role.
+            task("enquiries", e.enquiry_id, e.assigned_to, e.deal_id,
+                 eligible=lambda person, e=e: can_see(person, e), duty_role=DUTY_ROLE[effective_category(e)],
+                 action="Review enquiry", detail=label(e), path=f"/enquiries/{e.enquiry_id}")
     return {"date": day, "tasks": tasks}

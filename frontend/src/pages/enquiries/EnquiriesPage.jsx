@@ -4,6 +4,7 @@
  * Only visible to managers and staff with handles_enquiries = true.
  */
 import { useState, useEffect, useCallback } from 'react';
+import { categoriesFor } from '../../utils/enquiryCategories';
 import { useNavigate } from 'react-router-dom';
 import { getEnquiries, updateEnquiry } from '../../api/enquiriesApi';
 import { apiError } from '../../utils/apiError';
@@ -34,6 +35,7 @@ export default function EnquiriesPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
   const [assignedFilter, setAssignedFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const pageSize = 20;
 
   const fetchData = useCallback(async () => {
@@ -42,6 +44,7 @@ export default function EnquiriesPage() {
       setError("");
       const params = { page, page_size: pageSize };
       if (statusFilter) params.status_filter = statusFilter;
+      if (categoryFilter) params.category = categoryFilter;
       if (assignedFilter === 'mine') params.assigned_to = user?.user_id;
       const res = await getEnquiries(params);
       if (!Array.isArray(res.data.items)) throw new Error("Invalid enquiry list response");
@@ -54,7 +57,7 @@ export default function EnquiriesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter, assignedFilter, user?.user_id]);
+  }, [page, statusFilter, assignedFilter, categoryFilter, user?.user_id]);
 
   useEffect(() => {
     fetchData();
@@ -95,6 +98,15 @@ export default function EnquiriesPage() {
           ))}
         </div>
         <div className="flex gap-2 ml-auto">
+          <select
+            aria-label="Filter by category"
+            value={categoryFilter}
+            onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+            className="px-3 py-1.5 text-xs rounded-lg bg-bg-elevated border border-bg-border text-text-primary"
+          >
+            <option value="">All my categories</option>
+            {categoriesFor(user).map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
           <button
             onClick={() => { setAssignedFilter(assignedFilter === 'mine' ? '' : 'mine'); setPage(1); }}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
@@ -114,7 +126,7 @@ export default function EnquiriesPage() {
       ) : !error && enquiries.length === 0 ? (
         <div className="bg-bg-card border border-bg-border rounded-xl p-12 text-center">
           <p className="text-text-muted text-sm">
-            {statusFilter || assignedFilter ? 'No enquiries match your filters.' : 'No enquiries yet.'}
+            {statusFilter || assignedFilter || categoryFilter ? 'No enquiries match your filters.' : 'No enquiries yet.'}
           </p>
         </div>
       ) : (
@@ -125,6 +137,7 @@ export default function EnquiriesPage() {
               <thead>
                 <tr className="border-b border-bg-border">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Subject</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Category</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Customer</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Vehicle</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Status</th>
@@ -144,6 +157,7 @@ export default function EnquiriesPage() {
                     <td className="px-4 py-3">
                       <span className="text-text-primary font-medium truncate block max-w-[200px]">{enq.subject}</span>
                     </td>
+                    <td className="px-4 py-3"><span className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded-full border border-bg-border text-text-secondary">{enq.category}</span></td>
                     <td className="px-4 py-3 text-text-secondary">
                       {enq.customer?.full_name || `Customer #${enq.customer_id}`}
                     </td>
@@ -197,6 +211,7 @@ export default function EnquiriesPage() {
                   </span>
                 </div>
                 <div className="text-xs text-text-muted space-y-1">
+                  <p>Category: {enq.category}</p>
                   <p>Customer: {enq.customer?.full_name || `#${enq.customer_id}`}</p>
                   {enq.vehicle && <p>Vehicle: {enq.vehicle.year} {enq.vehicle.make} {enq.vehicle.model}</p>}
                   <p>{enq.message_count} messages · {enq.assigned_name ? `Assigned to ${enq.assigned_name}` : 'Unassigned'}</p>

@@ -11,6 +11,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 import { formatRelativeTime } from '../../utils/formatters';
 import NewEnquiryModal from '../../components/enquiries/NewEnquiryModal';
+import CategoryBadge from '../../components/enquiries/CategoryBadge';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All Enquiries' },
@@ -128,6 +129,7 @@ export default function EnquiriesPage() {
                     >
                       {enq.status}
                     </span>
+                    <CategoryBadge category={enq.category} />
                   </div>
 
                   {/* Vehicle reference */}

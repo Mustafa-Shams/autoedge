@@ -64,6 +64,7 @@ def purchase_thread(db, sale_id, customer_id=None):
     thread = db.query(Enquiry).filter_by(sale_id=sale_id).one_or_none()
     if not thread:
         thread = Enquiry(deal_id=sale.deal.deal_id, sale_id=sale_id, customer_id=sale.customer_id, vehicle_id=sale.vehicle_id,
+                         category="Vehicle/Price",
                          subject=f"Purchase #{sale_id} · {sale.vehicle.make} {sale.vehicle.model}", status="Open")
         db.add(thread)
         db.flush()

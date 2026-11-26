@@ -12,6 +12,7 @@ from app.models.customer import Customer
 from app.models.customer_vehicle import CustomerVehicle
 from app.models.deal_activity import DealActivity
 from app.models.deal import Deal
+from app.core.enquiry_categories import can_see, label, visible_filter
 from app.models.enquiry import Enquiry
 from app.models.reservation import Reservation
 from app.models.sale import Sale
@@ -108,10 +109,14 @@ def detail(db, deal_id, customer_id=None, staff=None):
     if can("enquiries") and (not staff or staff.role == "manager" or staff.handles_enquiries):
         if d.stage in ("Shopping","Reserved","Awaiting pickup") and (not staff or staff.access["enquiries"] == "full"):
             unlinked = db.query(Enquiry).filter_by(customer_id=d.customer_id, deal_id=None, vehicle_id=None, sale_id=None)
+            if staff and visible_filter(staff) is not None:
+                unlinked = unlinked.filter(visible_filter(staff))
             result["unlinked_enquiries"] = [dict(id=e.enquiry_id, subject=e.subject) for e in unlinked.order_by(Enquiry.enquiry_id.desc())]
         for thread in db.query(Enquiry).filter_by(deal_id=d.deal_id):
+            if staff and not can_see(staff, thread):
+                continue
             path = f"{'' if staff else '/account'}/enquiries/{thread.enquiry_id}"
-            event(thread.created_at, thread.subject, thread.status, path)
+            event(thread.created_at, label(thread), thread.status, path)
             for message in thread.messages:
                 event(message.created_at, message.sender_user.full_name if message.sender_user else result["customer"],
                       message.body, path)
@@ -215,12 +220,15 @@ def link_general_enquiry(db, deal_id, enquiry_id, customer_id=None, staff=None):
         raise HTTPException(404, "Deal not found")
     deal = db.query(Deal).filter_by(deal_id=deal_id).with_for_update().one()
     thread = db.query(Enquiry).filter_by(enquiry_id=enquiry_id, customer_id=deal.customer_id).with_for_update().one_or_none()
-    if not thread:
+    if not thread or (staff and not can_see(staff, thread)):
         raise HTTPException(404, "Enquiry not found")
     if thread.deal_id != deal_id:
         if thread.deal_id or thread.vehicle_id or thread.sale_id or deal.stage not in ("Shopping","Reserved","Awaiting pickup"):
             raise HTTPException(409, "This enquiry cannot be linked to this deal")
         thread.deal_id, thread.vehicle_id = deal_id, deal.vehicle_id
+        # A general question attached to a purchase becomes a sales conversation.
+        if thread.category in (None, "General"):
+            thread.category = "Vehicle/Price"
         db.commit()
     return {"deal_id": deal_id, "enquiry_id": enquiry_id}
 

@@ -678,7 +678,7 @@ def test_store_enquiry_appears_for_manager_and_flagged_staff_with_reply(setup):
         reception_id, reception = add_user(db, "receptionist")
         _, technician = add_user(db, "technician", handles_enquiries=True)
     response = client.post(f"{API}/store/enquiries", headers=customer, json={
-        "subject": "Finance enquiry", "message": "What finance options are available?",
+        "subject": "Finance enquiry", "message": "What finance options are available?", "category": "Finance",
     })
     assert response.status_code == 201, response.text
     enquiry_id = response.json()["enquiry_id"]
@@ -686,12 +686,16 @@ def test_store_enquiry_appears_for_manager_and_flagged_staff_with_reply(setup):
         response = client.get(f"{API}/enquiries", headers=staff, follow_redirects=False)
         item = response.json()["items"][0]
         assert response.status_code == 200 and item["enquiry_id"] == enquiry_id and item["assigned_to"] is None
+        assert item["category"] == "Finance"
     for staff in (reception, technician):
         assert client.get(f"{API}/enquiries", headers=staff).status_code == 403
 
     access_path = f"{API}/users/{reception_id}/enquiry-access"
     assert client.put(access_path, headers=sales, json={"handles_enquiries": True}).status_code == 403
     assert client.put(access_path, headers=manager, json={"handles_enquiries": True}).json()["handles_enquiries"]
+    # Finance belongs to sales; a receptionist sees it only once it is assigned to them.
+    assert client.get(f"{API}/enquiries/{enquiry_id}", headers=reception).status_code == 404
+    assert client.put(f"{API}/enquiries/{enquiry_id}", headers=manager, json={"assigned_to": reception_id}).status_code == 200
     assert client.get(f"{API}/enquiries/{enquiry_id}", headers=reception).status_code == 200
     assert client.post(f"{API}/enquiries/{enquiry_id}/reply", headers=reception, json={
         "body": "Please visit us to discuss finance options.",
@@ -1044,3 +1048,115 @@ def test_technician_profile_updates_upcoming_bookings_and_public_representation(
     assert client.delete(f"{API}/users/{technician_id}", headers=manager).status_code == 200
     assert client.get(f"{API}/public/technicians").json() == []
     assert client.delete(f"{API}/users/{technician_id}/permanent", headers=manager).status_code == 409
+
+
+def _ask(client, customer, category=None, vehicle_id=None, subject=None):
+    body = {"subject": subject or f"About {category or 'something'}", "message": "Please get back to me."}
+    if category:
+        body["category"] = category
+    if vehicle_id:
+        body["vehicle_id"] = vehicle_id
+    response = client.post(f"{API}/store/enquiries", headers=customer, json=body)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_enquiry_category_validation_and_defaults(setup):
+    client, sessions, _ = setup
+    _, customer = signup(client)
+    with sessions.begin() as db:
+        vehicle_id = add_vehicle(db)
+    assert client.get(f"{API}/store/enquiries/categories").json() == ["Vehicle/Price", "Finance", "Service", "General"]
+    bad = client.post(f"{API}/store/enquiries", headers=customer,
+                      json={"subject": "Hello", "message": "Wrong category", "category": "Pickup"})
+    assert bad.status_code == 422
+    assert _ask(client, customer, "Service")["category"] == "Service"
+    assert _ask(client, customer, vehicle_id=vehicle_id)["category"] == "Vehicle/Price"
+    assert _ask(client, customer)["category"] == "General"
+    mine = client.get(f"{API}/store/enquiries", headers=customer).json()
+    assert sorted(e["category"] for e in mine) == ["General", "Service", "Vehicle/Price"]
+
+
+def test_enquiry_visibility_follows_role_categories(setup):
+    client, sessions, manager = setup
+    _, customer = signup(client)
+    with sessions.begin() as db:
+        vehicle_id = add_vehicle(db)
+        sales_id, sales = add_user(db, "sales_executive", handles_enquiries=True)
+        _, reception = add_user(db, "receptionist", handles_enquiries=True)
+    ids = {c: _ask(client, customer, c)["enquiry_id"] for c in ("Vehicle/Price", "Finance", "Service", "General")}
+    with sessions.begin() as db:
+        # A legacy row without a category, about a car, counts as Vehicle/Price.
+        legacy = Enquiry(customer_id=db.query(Customer.customer_id).scalar(), vehicle_id=vehicle_id,
+                         subject="Legacy price question", status="Open")
+        db.add(legacy)
+        db.flush()
+        legacy_id = legacy.enquiry_id
+
+    def visible(staff, **params):
+        response = client.get(f"{API}/enquiries", headers=staff, params=params)
+        assert response.status_code == 200, response.text
+        return {(e["enquiry_id"], e["category"]) for e in response.json()["items"]}
+
+    assert visible(sales) == {(ids["Vehicle/Price"], "Vehicle/Price"), (ids["Finance"], "Finance"),
+                              (legacy_id, "Vehicle/Price")}
+    assert visible(reception) == {(ids["Service"], "Service"), (ids["General"], "General")}
+    assert len(visible(manager)) == 5
+    assert visible(manager, category="Finance") == {(ids["Finance"], "Finance")}
+    assert visible(sales, category="Service") == set()
+    blocked = f"{API}/enquiries/{ids['Service']}"
+    assert client.get(blocked, headers=sales).status_code == 404
+    assert client.post(blocked + "/reply", headers=sales, json={"body": "Hi"}).status_code == 404
+    assert client.put(blocked, headers=sales, json={"status": "Closed"}).status_code == 404
+    # Assignment overrides the category rule; staff with full access can recategorise a misfiled thread.
+    assert client.put(blocked, headers=manager, json={"assigned_to": sales_id}).status_code == 200
+    assert client.get(blocked, headers=sales).status_code == 200
+    moved = client.put(f"{API}/enquiries/{ids['General']}", headers=reception, json={"category": "Finance"})
+    assert moved.status_code == 200 and moved.json()["category"] == "Finance"
+    assert ids["General"] in {i for i, _ in visible(sales)}
+    assert ids["General"] not in {i for i, _ in visible(reception)}
+    assert client.put(f"{API}/enquiries/{ids['Finance']}", headers=manager, json={"category": "Pickup"}).status_code == 422
+
+
+def test_today_routes_enquiries_by_category(setup):
+    client, sessions, manager = setup
+    _, customer = signup(client)
+    with sessions.begin() as db:
+        _, sales = add_user(db, "sales_executive", handles_enquiries=True)
+        _, reception = add_user(db, "receptionist", handles_enquiries=True)
+    finance = _ask(client, customer, "Finance", subject="Loan for a car")["enquiry_id"]
+    service = _ask(client, customer, "Service", subject="Brake noise")["enquiry_id"]
+
+    def enquiry_tasks(staff):
+        tasks = client.get(f"{API}/today", headers=staff).json()["tasks"]
+        return {t["path"]: t for t in tasks if t["path"].startswith("/enquiries/")}
+
+    assert set(enquiry_tasks(sales)) == {f"/enquiries/{finance}"}
+    assert set(enquiry_tasks(reception)) == {f"/enquiries/{service}"}
+    everyone = enquiry_tasks(manager)
+    assert everyone[f"/enquiries/{finance}"]["owner"] == "Sales_Executive"
+    assert everyone[f"/enquiries/{service}"]["owner"] == "Receptionist"
+    assert everyone[f"/enquiries/{finance}"]["detail"] == "Finance · Loan for a car"
+
+
+def test_deal_timeline_shows_visible_enquiry_categories(setup):
+    client, sessions, manager = setup
+    _, customer = signup(client)
+    with sessions.begin() as db:
+        vehicle_id = add_vehicle(db)
+        _, sales = add_user(db, "sales_executive", handles_enquiries=True)
+    first = _ask(client, customer, "Finance", vehicle_id=vehicle_id, subject="Monthly payments")
+    deal_id = first["deal_id"]
+    general = _ask(client, customer, subject="Opening hours")["enquiry_id"]
+    staff_deal = client.get(f"{API}/deals/{deal_id}", headers=sales).json()
+    assert [u["id"] for u in staff_deal["unlinked_enquiries"]] == []  # General is not a sales category.
+    manager_deal = client.get(f"{API}/deals/{deal_id}", headers=manager).json()
+    assert [u["id"] for u in manager_deal["unlinked_enquiries"]] == [general]
+    linked = client.post(f"{API}/store/deals/{deal_id}/enquiries/{general}", headers=customer)
+    assert linked.status_code == 200, linked.text
+    with sessions() as db:
+        assert db.get(Enquiry, general).category == "Vehicle/Price"
+    titles = [e["title"] for e in client.get(f"{API}/deals/{deal_id}", headers=sales).json()["events"]]
+    assert "Finance · Monthly payments" in titles and "Vehicle/Price · Opening hours" in titles
+    customer_titles = [e["title"] for e in client.get(f"{API}/store/deals/{deal_id}", headers=customer).json()["events"]]
+    assert "Finance · Monthly payments" in customer_titles

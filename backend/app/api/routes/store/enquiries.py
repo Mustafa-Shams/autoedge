@@ -6,7 +6,7 @@ GET  /store/enquiries/{id}         — get thread with messages
 POST /store/enquiries/{id}/messages — reply to an enquiry
 POST /store/enquiries/{id}/close   — close an enquiry
 """
-from typing import Optional, List
+from typing import Literal, Optional, List
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.services.deal_service import interest_id
 from app.api.deps import get_db, get_current_customer
+from app.core.enquiry_categories import CATEGORIES, default_category, effective_category, label
 from app.core.time import utcnow
 from app.models.customer_account import CustomerAccount
 from app.models.enquiry import Enquiry, EnquiryMessage
@@ -28,6 +29,7 @@ router = APIRouter(prefix="/store/enquiries", tags=["store-enquiries"])
 
 class CreateEnquiryRequest(BaseModel):
     vehicle_id: Optional[int] = None
+    category: Optional[Literal[CATEGORIES]] = None
     subject: str
     message: str
 
@@ -133,6 +135,7 @@ def _to_list_item(e: Enquiry) -> dict:
         "sale_id": e.sale_id,
         "deal_id": e.deal_id,
         "subject": e.subject,
+        "category": effective_category(e),
         "status": e.status,
         "vehicle_id": e.vehicle_id,
         "vehicle": vehicle_ref,
@@ -161,6 +164,12 @@ def _msg_response(m: EnquiryMessage) -> dict:
 # ── Routes ───────────────────────────────────────────────────────────
 
 
+@router.get("/categories")
+async def list_categories():
+    """Categories a customer can choose when starting an enquiry."""
+    return list(CATEGORIES)
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_enquiry(
     body: CreateEnquiryRequest,
@@ -179,6 +188,7 @@ async def create_enquiry(
         deal_id=interest_id(db, account.customer_id, body.vehicle_id),
         customer_id=account.customer_id,
         vehicle_id=body.vehicle_id,
+        category=body.category or default_category(body.vehicle_id),
         subject=body.subject.strip(),
         status="Open",
         created_at=now,

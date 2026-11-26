@@ -4,6 +4,7 @@
  * reply text area, close/re-open button, vehicle reference card.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
+import CategoryBadge from '../../components/enquiries/CategoryBadge';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getEnquiry, replyToEnquiry, closeEnquiry } from '../../api/storeApi';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -136,6 +137,7 @@ export default function EnquiryDetailPage() {
               >
                 {enquiry.status}
               </span>
+              <CategoryBadge category={enquiry.category} />
             </div>
             <p className="text-xs text-text-muted">
               Started {formatRelativeTime(enquiry.created_at)} · {enquiry.message_count} message{enquiry.message_count !== 1 ? 's' : ''}

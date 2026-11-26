@@ -6,13 +6,14 @@ POST /enquiries/{id}/reply   — staff reply
 PUT  /enquiries/{id}         — update status/assignment
 PUT  /users/{id}/enquiry-access — toggle handles_enquiries (manager only)
 """
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_db, get_current_user, require_role, require_enquiry_access
+from app.core.enquiry_categories import CATEGORIES, can_see, category_expression, effective_category, visible_filter
 from app.core.time import utcnow
 from app.models.enquiry import Enquiry, EnquiryMessage
 from app.models.notification import Notification
@@ -43,6 +44,7 @@ class StaffReplyRequest(BaseModel):
 class UpdateEnquiryRequest(BaseModel):
     status: Optional[str] = None
     assigned_to: Optional[int] = None
+    category: Optional[Literal[CATEGORIES]] = None
 
 
 class ToggleEnquiryAccess(BaseModel):
@@ -50,6 +52,13 @@ class ToggleEnquiryAccess(BaseModel):
 
 
 # ── Helper ───────────────────────────────────────────────────────────
+
+
+def _visible_or_404(enquiry, user):
+    # Same 404 as a missing row: do not reveal threads outside the user's categories.
+    if not enquiry or not can_see(user, enquiry):
+        raise HTTPException(status_code=404, detail="Enquiry not found.")
+    return enquiry
 
 
 def _enquiry_to_dict(e: Enquiry) -> dict:
@@ -96,6 +105,7 @@ def _enquiry_to_dict(e: Enquiry) -> dict:
         "sale_id": e.sale_id,
         "deal_id": e.deal_id,
         "subject": e.subject,
+        "category": effective_category(e),
         "status": e.status,
         "vehicle_id": e.vehicle_id,
         "vehicle": vehicle_ref,
@@ -119,6 +129,7 @@ async def list_enquiries(
     status_filter: Optional[str] = None,
     assigned_to: Optional[int] = None,
     vehicle_id: Optional[int] = None,
+    category: Optional[Literal[CATEGORIES]] = None,
     page: int = 1,
     page_size: int = 20,
     db: Session = Depends(get_db),
@@ -140,6 +151,11 @@ async def list_enquiries(
         q = q.filter(Enquiry.assigned_to == assigned_to)
     if vehicle_id:
         q = q.filter(Enquiry.vehicle_id == vehicle_id)
+    visible = visible_filter(current_user)
+    if visible is not None:
+        q = q.filter(visible)
+    if category:
+        q = q.filter(category_expression() == category)
 
     total = q.count()
     items = (
@@ -175,9 +191,7 @@ async def get_enquiry_detail(
         .filter(Enquiry.enquiry_id == enquiry_id)
         .first()
     )
-    if not enquiry:
-        raise HTTPException(status_code=404, detail="Enquiry not found.")
-    return _enquiry_to_dict(enquiry)
+    return _enquiry_to_dict(_visible_or_404(enquiry, current_user))
 
 
 @router.post("/{enquiry_id}/reply")
@@ -188,9 +202,7 @@ async def staff_reply(
     current_user=Depends(ENQUIRY_ACCESS),
 ):
     """Staff replies to an enquiry. Sets status to Answered. Notifies customer."""
-    enquiry = db.query(Enquiry).filter(Enquiry.enquiry_id == enquiry_id).first()
-    if not enquiry:
-        raise HTTPException(status_code=404, detail="Enquiry not found.")
+    enquiry = _visible_or_404(db.query(Enquiry).filter(Enquiry.enquiry_id == enquiry_id).first(), current_user)
 
     now = utcnow()
 
@@ -239,10 +251,8 @@ async def update_enquiry(
     db: Session = Depends(get_db),
     current_user=Depends(ENQUIRY_ACCESS),
 ):
-    """Update enquiry status or assignment (staff)."""
-    enquiry = db.query(Enquiry).filter(Enquiry.enquiry_id == enquiry_id).first()
-    if not enquiry:
-        raise HTTPException(status_code=404, detail="Enquiry not found.")
+    """Update enquiry status, assignment or category (staff)."""
+    enquiry = _visible_or_404(db.query(Enquiry).filter(Enquiry.enquiry_id == enquiry_id).first(), current_user)
 
     if body.status is not None:
         if body.status not in ("Open", "Answered", "Closed"):
@@ -256,11 +266,15 @@ async def update_enquiry(
             raise HTTPException(status_code=404, detail="Staff user not found.")
         enquiry.assigned_to = body.assigned_to
 
+    if body.category is not None:
+        enquiry.category = body.category
+
     enquiry.updated_at = utcnow()
     db.commit()
     db.refresh(enquiry)
 
-    return {"enquiry_id": enquiry.enquiry_id, "status": enquiry.status, "assigned_to": enquiry.assigned_to}
+    return {"enquiry_id": enquiry.enquiry_id, "status": enquiry.status, "assigned_to": enquiry.assigned_to,
+            "category": effective_category(enquiry)}
 
 
 # ── Enquiry access toggle (manager only, on users route) ─────────

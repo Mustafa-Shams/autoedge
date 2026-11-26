@@ -5,8 +5,13 @@ import ModalOverlay from '../common/ModalOverlay';
  */
 import { useState, useEffect, useRef } from 'react';
 import { createEnquiry } from '../../api/storeApi';
+import { ENQUIRY_CATEGORIES } from './CategoryBadge';
 
-export default function NewEnquiryModal({ isOpen, onClose, onCreated, vehicleId = null, prefillSubject = '' }) {
+export default function NewEnquiryModal({
+  isOpen, onClose, onCreated, vehicleId = null, prefillSubject = '', defaultCategory = null,
+}) {
+  const initialCategory = defaultCategory || (vehicleId ? 'Vehicle/Price' : '');
+  const [category, setCategory] = useState(initialCategory);
   const [subject, setSubject] = useState(prefillSubject);
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -17,12 +22,13 @@ export default function NewEnquiryModal({ isOpen, onClose, onCreated, vehicleId 
   useEffect(() => {
     if (isOpen) {
       setSubject(prefillSubject);
+      setCategory(initialCategory);
       setMessage('');
       setError(null);
       setSubmitting(false);
       setTimeout(() => subjectRef.current?.focus(), 100);
     }
-  }, [isOpen, prefillSubject]);
+  }, [isOpen, prefillSubject, initialCategory]);
 
   if (!isOpen) return null;
 
@@ -31,6 +37,10 @@ export default function NewEnquiryModal({ isOpen, onClose, onCreated, vehicleId 
     const trimmedSubject = subject.trim();
     const trimmedMessage = message.trim();
 
+    if (!category) {
+      setError('Choose what your enquiry is about.');
+      return;
+    }
     if (trimmedSubject.length < 3) {
       setError('Subject must be at least 3 characters.');
       return;
@@ -44,6 +54,7 @@ export default function NewEnquiryModal({ isOpen, onClose, onCreated, vehicleId 
       setSubmitting(true);
       setError(null);
       const payload = {
+        category,
         subject: trimmedSubject,
         message: trimmedMessage,
       };
@@ -90,6 +101,28 @@ export default function NewEnquiryModal({ isOpen, onClose, onCreated, vehicleId 
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Category decides which team answers */}
+          <div>
+            <label htmlFor="enq-category" className="block text-sm font-medium text-text-secondary mb-1.5">
+              What is it about?
+            </label>
+            <select
+              id="enq-category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              required
+              className="w-full px-4 py-2.5 bg-bg-elevated border border-bg-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue"
+            >
+              <option value="" disabled>Choose a topic…</option>
+              {ENQUIRY_CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-text-muted mt-1">
+              {ENQUIRY_CATEGORIES.find((c) => c.value === category)?.team || 'We route your question to the right team.'}
+            </p>
+          </div>
+
           {/* Subject */}
           <div>
             <label htmlFor="enq-subject" className="block text-sm font-medium text-text-secondary mb-1.5">
