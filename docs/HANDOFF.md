@@ -1,5 +1,21 @@
 # HANDOFF — AutoEdge
 
+## Claude session, November 26 — owner's seven-step plan
+
+Branch `redesign-local` (local only, never pushed). The owner confirmed the redesign workflow is final; commissions for assisted deals, the 20% pre-pickup refund, deals, units, trade acquisitions, Today and the outbox are by design. Safety rules are in CLAUDE.md. Tests use only `TEST_DATABASE_URL=postgresql://autoedge_test@127.0.0.1:55432/postgres` (owner's local server, binaries in C:\pgsql\pgsqlin).
+
+| Step | Status | Evidence |
+|---|---|---|
+| 0. Checkpoint branch | Done | Commit 0df96d0 on redesign-local holds the whole Codex working tree. Secret scan of the diff found nothing. |
+| 1. Full suite + two PostgreSQL bugs | Done | 192 passed, 7 warnings, on local PostgreSQL. Service cancellation writes txn_type `Refund` and new technicians default to `General`, allowed by 0016. Both regression tests now assert the stored values directly. |
+| 2. Migration round trip and schema comparison | Next | |
+| 3. Restore bank flip card | Pending | |
+| 4. Enquiry categories | Pending | |
+| 5. Leftovers | Pending | |
+| 6. docs/DEMO.md | Pending | |
+| 7. docs/ROLLOUT.md | Pending | |
+
+
 ## Local schema reconciliation — current checkpoint
 
 November 24. The owner requires repository-only evidence and disposable local PostgreSQL verification. All prior remote repair plans are superseded. The recorded four tables map to inventory_units and deals (0006_units_and_deals), sales_assistance (0009_sales_assistance), and trade_acquisitions (0010_trade_acquisitions). No remote connection was made in this session. Next verify the test database guard, migration round trip and read-only inspector before release.

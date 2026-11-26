@@ -941,6 +941,11 @@ def test_service_cancellation_persists_refund_once(setup, monkeypatch):
     assert receipt["status"] == "Cancelled"
     assert Decimal(receipt["refund_amount"]) == 30
     with sessions() as db:
+        # PostgreSQL's ck_bt_txn_type only accepts the established Refund ledger type.
+        refunds = db.query(BankTransaction).filter_by(service_booking_id=booking.json()["booking_id"],
+                                                      direction="Credit").all()
+        assert [(t.txn_type, t.amount) for t in refunds] == [("Refund", Decimal("30.00"))]
+    with sessions() as db:
         email = db.query(EmailOutbox).order_by(EmailOutbox.email_id.desc()).first()
         monkeypatch.setattr(email_service, "provider_configured", lambda: True)
         monkeypatch.setattr(email_service, "_is_suppressed_address", lambda _: False)
@@ -1007,6 +1012,11 @@ def test_technician_profile_updates_upcoming_bookings_and_public_representation(
     })
     assert response.status_code == 201, response.text
     technician_id = response.json()["user_id"]
+    with sessions() as db:
+        from app.models.technician_profile import TechnicianProfile
+        # The portal's default specialty must satisfy ck_tp_specialty on PostgreSQL.
+        profile = db.get(TechnicianProfile, technician_id)
+        assert profile.specialty == "General" and profile.is_bookable is False
     url = f"{API}/technician-profiles/{technician_id}"
     photo_url = "https://example.com/technician.jpg"
     response = client.put(url, headers=manager, json={
