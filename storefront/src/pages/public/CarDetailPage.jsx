@@ -397,6 +397,15 @@ export default function CarDetailPage() {
                 </>
               )}
 
+              {/* A trade-in aimed at this car joins the same deal and can be credited at checkout */}
+              <Link
+                to={loggedIn ? `/account/trade-ins/new?target=${id}`
+                  : '/login?next=' + encodeURIComponent(`/account/trade-ins/new?target=${id}`)}
+                className="block w-full py-2 text-center text-sm text-accent-blue hover:underline"
+              >
+                Trade in your car towards this one
+              </Link>
+
               {/* Wishlist + Compare row */}
               <div className="flex items-center gap-3 pt-3 border-t border-bg-border">
                 <button

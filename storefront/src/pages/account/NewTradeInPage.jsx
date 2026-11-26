@@ -2,9 +2,10 @@
  * NewTradeInPage — submit a trade-in request with vehicle details and 3-8 photos.
  * Spec 7.7: indicative estimate shown after submit.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { createTradeIn } from '../../api/storeApi';
+import { getVehicleDetail } from '../../api/publicApi';
 import ImageUploader from '../../components/forms/ImageUploader';
 import BackButton from '../../components/common/BackButton';
 import { formatPrice } from '../../utils/formatters';
@@ -16,6 +17,14 @@ export default function NewTradeInPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const targetVehicleId = searchParams.get('target') || '';
+  const [targetName, setTargetName] = useState('');
+
+  useEffect(() => {
+    if (!targetVehicleId) return;
+    getVehicleDetail(targetVehicleId)
+      .then(({ data }) => setTargetName(`${data.year} ${data.make} ${data.model}`))
+      .catch(() => setTargetName(`car #${targetVehicleId}`));
+  }, [targetVehicleId]);
 
   const [form, setForm] = useState({
     target_vehicle_id: targetVehicleId,
@@ -169,6 +178,11 @@ export default function NewTradeInPage() {
 
       <h1 className="text-2xl font-bold text-text-primary mb-2">New Trade-In</h1>
       <p className="text-text-secondary mb-6">Submit your vehicle for a trade-in valuation</p>
+      {targetVehicleId && (
+        <p className="mb-6 rounded-lg border border-bg-border bg-bg-card p-3 text-sm text-text-secondary">
+          Trading towards <span className="font-semibold text-text-primary">{targetName || '…'}</span>. An accepted offer can be credited when you buy this car.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Vehicle details */}
