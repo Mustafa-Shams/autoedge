@@ -6,6 +6,8 @@ Branch `redesign-local` (local only, never pushed). The owner confirmed the rede
 
 Local demo data for browser checks: database `autoedge_demo_local` on the same local server, migrated to head and seeded with seed.sql plus storefront_seed.seed() through a wrapper that disables load_dotenv (the seed script otherwise loads backend/.env). Run the backend with AUTOEDGE_TESTING=1 and TEST_DATABASE_URL pointing at that database so .env is never read and email is off.
 
+**Next action: the owner runs docs/ROLLOUT.md. No agent step is pending.** Branch `redesign-local` holds all commits; nothing was pushed.
+
 | Step | Status | Evidence |
 |---|---|---|
 | 0. Checkpoint branch | Done | Commit 0df96d0 on redesign-local holds the whole Codex working tree. Secret scan of the diff found nothing. |
@@ -15,7 +17,7 @@ Local demo data for browser checks: database `autoedge_demo_local` on the same l
 | 4. Enquiry categories | Done | backend/app/core/enquiry_categories.py holds the list and role rules. Store POST accepts `category` (422 outside the list; default Vehicle/Price for car or purchase threads, else General), GET /store/enquiries/categories. Staff list/detail/reply/update filter by role category or personal assignment (404 otherwise), `?category=` filter, PUT can recategorise. Today routes unclaimed threads to the category's role and shows 'Category · Subject'. Deal timeline labels threads by category and hides threads the staff member cannot see; linking a General thread to a deal makes it Vehicle/Price. Purchase conversations are Vehicle/Price. Storefront form has a required topic select; both portals show category badges; staff thread page can change category. Four new tests plus the updated access test; full suite 200 passed. Headless Chrome: sarah sees Vehicle/Price+Finance, rita Service, admin all, Today shows 'Finance · …'. |
 | 5. Leftovers | Done | Contrast: the single accent blue failed both ways (white on fill 3.6:1, blue text on tinted panels 4.2-4.4:1). Split into `accent-blue` #7399FF for text and `accent-blue-strong` #285BCF / `-strong-hover` #214BA9 for filled controls in both apps (59 files, also fixes the staff portal's undefined `hover:bg-accent-blue-hover`); staff `status.sold` #A78BFA. A canvas-based WCAG audit (headless Chrome) of 24 key pages in both portals reports no text under 4.5:1 (3:1 large). BackButton added to every storefront page except Home. Car page wishlist shows the API or network error inline via utils/errors.js. README: live URLs, 32 tables, ER diagram with the five new tables, database features. DEPLOYMENT_GUIDE sample key replaced by a placeholder. database/seed.sql staff hash now matches its documented demo password (tests/test_seed_files.py). Full suite 201 passed; both builds and lints pass. |
 | 6. docs/DEMO.md | Done | Three stories with exact clicks per role and the car/money/next/commission columns. All three were run against the local API on a freshly rebuilt demo database: self-service (no commission), assisted after test drive (Sarah $497.50 Pending, same deal number from drive to pickup), reserve + trade-in + walk away (refund 90% of deposit, deal Cancelled). Added the missing storefront link "Trade in your car towards this one" on the car page (opens /account/trade-ins/new?target=ID, which already existed but had no link) and a "Trading towards" note on the form; checked in headless Chrome. |
-| 7. docs/ROLLOUT.md | Next | |
+| 7. docs/ROLLOUT.md | Done | Owner-only commands: credential rotation, Neon test branch, db_check before/after, alembic upgrade head, compare and post-migration checks, local smoke test against the test branch, production with backup branch and paused backend, then merge redesign-local into main and push, live smoke test, rollback table. New read-only helpers scripts/compare_db_check.py and scripts/post_migration_check.py. Rehearsed locally on a 0005 copy with data and the four empty strays: no rows lost, all checks passed. Confirmed that a session DATABASE_URL overrides backend/.env (tested with a fake .env in a scratch folder). |
 
 
 ## Local schema reconciliation — current checkpoint
@@ -69,6 +71,8 @@ The earlier build sequence and acceptance criteria are in [REDESIGN.md](REDESIGN
 - The owner clarified that a pre-pickup cancellation involving an acquired trade-in refunds 20% of cash and wallet payments and returns the trade-in. Both parties must agree before either vehicle is released. One salesperson owns a deal before payment. A recorded sale-related conversation, completed test drive or walk-in appointment qualifies. Pay that owner at pickup.
 
 ### Owner deployment for the redesign
+
+Superseded on November 26 by [ROLLOUT.md](ROLLOUT.md), which adds a test branch, snapshots, consistency checks and rollback. The text below is kept for history.
 
 The current local Alembic head is `0016_enquiry_category`. The older deployment sections below describe previous releases. Back up the intended PostgreSQL database and run the following from the repository root against a staging copy first. Use the backend environment for the intended database.
 
