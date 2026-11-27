@@ -101,3 +101,9 @@ For a catalog snapshot, run `backend/venv/Scripts/python.exe scripts/db_check.py
 - Linking a General enquiry to a deal makes it Vehicle/Price, because it is now about buying that car and the deal's salesperson must be able to read it.
 - Colour contrast: blue is split into a text tone (`accent-blue`, #7399FF) and a fill tone for white text (`accent-blue-strong`, #285BCF; hover #214BA9). No single blue reaches 4.5:1 both as text on dark panels and behind white text. Staff `status.sold` is lightened to #A78BFA for badge text.
 - The storefront Home page has no Back button because it is the root of the site; every other page has one.
+
+## November 27 — release
+
+- The owner applied revisions 0006–0016 to Neon production on 2026-11-27 using docs/ROLLOUT.md (test branch first, migration before code push). Checks passed with no rows lost; deals 7, inventory_units 65, trade_acquisitions 1. `main` at 2452221 is live on Railway and both Vercel projects.
+- The exposed Neon password and Brevo API key were rotated before release. Backups are kept as Neon branches `backup-before-reconcile` and `pre-redesign-20261127`.
+- The next phase is a UI/UX overhaul of both portals with no workflow, API or schema changes. It starts with three known issues: API timestamps shown 5 hours off in UTC+5 (naive UTC parsed as local), a doubled back link on the deal page, and reservation cards that show "Vehicle #N" without name or image.

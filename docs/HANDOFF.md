@@ -1,12 +1,33 @@
 # HANDOFF — AutoEdge
 
-## Claude session, November 26 — owner's seven-step plan
+## Current state — November 27, 2026 (redesign is live)
 
-Branch `redesign-local` (local only, never pushed). The owner confirmed the redesign workflow is final; commissions for assisted deals, the 20% pre-pickup refund, deals, units, trade acquisitions, Today and the outbox are by design. Safety rules are in CLAUDE.md. Tests use only `TEST_DATABASE_URL=postgresql://autoedge_test@127.0.0.1:55432/postgres` (owner's local server, binaries in C:\pgsql\pgsqlin).
+Resume here first.
+
+| Area | State |
+|---|---|
+| Production database | Neon primary is at Alembic `0016_enquiry_category`. The owner migrated it on 2026-11-27 following docs/ROLLOUT.md and verified it with scripts/db_check.py, scripts/compare_db_check.py and scripts/post_migration_check.py. No rows were lost. After migration: deals 7, inventory_units 65, trade_acquisitions 1. |
+| Live code | `main` at commit 2452221 is deployed on Railway (backend) and both Vercel projects (staff portal, storefront). The owner's live smoke test passed. |
+| Credentials | The Neon password and the Brevo API key were rotated. A test email from Email Log was sent successfully with the new key. |
+| Neon backups | Branches `backup-before-reconcile` and `pre-redesign-20261127`. |
+| Workflow | Final, as described in REDESIGN.md and DECISIONS.md. Do not change it. |
+
+### Next phase: UI/UX overhaul (no workflow changes)
+
+Complete visual and usability overhaul of the storefront and the staff portal. Business rules, API contracts and the database schema stay as they are. Known issues to fix in that phase:
+
+1. **Timestamps are 5 hours off for users in UTC+5.** The API returns naive UTC datetimes and the frontends parse them as local time. This affects the storefront, the staff portal and the Email Log.
+2. **The deal page shows two back links.**
+3. **Reservation cards show "Vehicle #N"** with no car name or image.
+
+The November 26 plan below is complete and kept as history.
+
+
+## Claude session, November 26 — owner's seven-step plan (complete, now live)
+
+Work was done on branch `redesign-local`; the owner merged it into `main` and released it on 2026-11-27. The owner confirmed the redesign workflow is final; commissions for assisted deals, the 20% pre-pickup refund, deals, units, trade acquisitions, Today and the outbox are by design. Safety rules are in CLAUDE.md. Tests use only `TEST_DATABASE_URL=postgresql://autoedge_test@127.0.0.1:55432/postgres` (owner's local server, binaries in C:\pgsql\pgsqlin).
 
 Local demo data for browser checks: database `autoedge_demo_local` on the same local server, migrated to head and seeded with seed.sql plus storefront_seed.seed() through a wrapper that disables load_dotenv (the seed script otherwise loads backend/.env). Run the backend with AUTOEDGE_TESTING=1 and TEST_DATABASE_URL pointing at that database so .env is never read and email is off.
-
-**Next action: the owner runs docs/ROLLOUT.md. No agent step is pending.** Branch `redesign-local` holds all commits; nothing was pushed.
 
 | Step | Status | Evidence |
 |---|---|---|
